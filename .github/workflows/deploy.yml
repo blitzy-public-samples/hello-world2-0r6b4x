@@ -42,7 +42,7 @@ jobs:
       
       # Step 2: Setup Node.js environment
       - name: Setup Node.js
-        uses: actions/setup-node@v3 # v3 specified in imports
+        uses: actions/setup-node@v4 # v3 specified in imports
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
