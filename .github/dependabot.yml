@@ -1,0 +1,48 @@
+# Dependabot configuration file v2
+# Manages automated dependency updates for npm packages and GitHub Actions
+version: 2
+updates:
+  # NPM dependencies configuration
+  - package-ecosystem: "npm"
+    directory: "/src/web"
+    schedule:
+      interval: "weekly"
+    # Allow both production and development dependencies
+    allow:
+      - dependency-type: "production"
+      - dependency-type: "development"
+    versioning-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Group related dependencies together for consolidated updates
+    groups:
+      react:
+        patterns:
+          - "react*"
+          - "@types/react*"
+        exclude-patterns:
+          - "react-scripts"
+      typescript-eslint:
+        patterns:
+          - "@typescript-eslint/*"
+      testing:
+        patterns:
+          - "@testing-library/*"
+          - "jest*"
+          - "@types/jest"
+
+  # GitHub Actions dependencies configuration
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
