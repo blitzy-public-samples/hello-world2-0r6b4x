@@ -1,0 +1,30 @@
+* @global-owner1 @global-owner2
+
+# Frontend application code ownership
+/src/web/ @frontend-team
+/src/web/**/*.{ts,tsx} @typescript-reviewers
+/src/web/**/*.test.{ts,tsx} @test-reviewers
+
+# Infrastructure and deployment configuration ownership
+/infrastructure/ @devops-team
+
+# CI/CD workflow configuration ownership
+/.github/workflows/ @devops-team
+
+# Build and environment configuration ownership
+/config/ @devops-team @frontend-team
+
+# TypeScript files anywhere in the repository
+*.ts *.tsx @typescript-reviewers
+
+# Package management and dependencies
+package.json package-lock.json @dependency-reviewers
+
+# TypeScript configuration
+tsconfig.json @typescript-reviewers @frontend-team
+
+# Code quality configuration
+.eslintrc* @code-quality-team
+
+# Documentation ownership
+README.md CONTRIBUTING.md @docs-team
