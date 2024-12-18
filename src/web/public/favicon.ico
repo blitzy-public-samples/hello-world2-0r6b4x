@@ -1,0 +1,32 @@
+File Format: ICO (image/x-icon)
+Dimensions: Multi-resolution file containing both 16x16 and 32x32 pixel versions
+File Size: Should be under 5KB after optimization
+Colors: Simple "HW" monogram or letter design in black (#000000) on transparent background
+Design: Minimal, clean design matching the Hello World application theme
+
+The file should be created using an image editor that supports ICO format export with the following characteristics:
+
+1. Format Details:
+- ICO container with 2 embedded images
+- 16x16 pixels (for browser tabs)
+- 32x32 pixels (for bookmarks and larger displays)
+- 32-bit color depth with alpha channel support
+- Transparent background
+
+2. Optimization Requirements:
+- Compressed without quality loss
+- Clean pixel alignment at small sizes
+- Clear edges without anti-aliasing artifacts
+- Proper alpha channel handling
+
+3. Serving Configuration:
+Content-Type: image/x-icon
+Cache-Control: public, max-age=604800, immutable
+ETag: Should be generated based on file content
+Last-Modified: Set to file creation timestamp
+
+4. Security Headers:
+Content-Security-Policy: img-src 'self'
+X-Content-Type-Options: nosniff
+
+Note: Since this is a binary file, it needs to be created using appropriate image editing software and exported in ICO format. The file should be placed directly in the src/web/public directory for proper serving by the development and production servers.
