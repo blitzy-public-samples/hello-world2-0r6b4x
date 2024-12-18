@@ -23,9 +23,9 @@ jobs:
     
     steps:
       # Checkout repository code
-      # actions/checkout@v3
+      # actions/checkout@v4
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       # Setup Node.js environment with caching
       # actions/setup-node@v3
