@@ -1,0 +1,70 @@
+name: Deploy
+
+# Trigger deployment after successful build workflow completion
+on:
+  workflow_run:
+    workflows: ["Build"]
+    branches: ["main"]
+    types: [completed]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only run if the build workflow was successful
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    # Set default working directory for all run steps
+    defaults:
+      run:
+        working-directory: src/web
+    
+    # Define deployment environment and URL
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    # Required permissions for GitHub Pages deployment
+    permissions:
+      pages: write
+      id-token: write
+    
+    strategy:
+      matrix:
+        # Specify Node.js version as per technical specifications
+        node-version: [16.x]
+    
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v3 # v3 specified in imports
+        with:
+          fetch-depth: 1 # Shallow clone for faster checkout
+      
+      # Step 2: Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v3 # v3 specified in imports
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: src/web/package-lock.json
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm ci
+        env:
+          CI: true
+          NODE_ENV: production
+      
+      # Step 4: Build application
+      - name: Build
+        run: npm run build
+        env:
+          CI: true
+          NODE_ENV: production
+      
+      # Step 5: Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v2 # v2 specified in imports
+        with:
+          artifact_name: github-pages
+          path: src/web/build
