@@ -1,0 +1,68 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Ensure we don't have multiple workflows running simultaneously for same ref/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: production
+  CI: true
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    defaults:
+      run:
+        working-directory: src/web
+    
+    strategy:
+      matrix:
+        node-version: [16.x]
+      fail-fast: true
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3 # v3
+        with:
+          fetch-depth: 1
+      
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3 # v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: src/web/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 5
+      
+      - name: Security audit
+        run: npm audit
+        continue-on-error: true
+      
+      - name: Type check
+        run: npm run type-check
+        timeout-minutes: 3
+      
+      - name: Lint
+        run: npm run lint
+        timeout-minutes: 2
+      
+      - name: Test
+        run: npm test -- --coverage
+        timeout-minutes: 3
+      
+      - name: Build
+        run: npm run build
+        timeout-minutes: 5
