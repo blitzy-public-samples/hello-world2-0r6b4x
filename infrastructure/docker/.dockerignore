@@ -1,0 +1,62 @@
+node_modules
+.npm/*
+.yarn/*
+
+# Version Control
+.git
+.gitignore
+.gitattributes
+
+# Build and Distribution
+build
+dist
+coverage
+
+# Environment and Secrets
+.env*
+**/*.key
+**/*.pem
+**/*.crt
+**/id_rsa*
+
+# Development Files
+**/*.test.*
+**/*.spec.*
+.vscode/*
+.idea/*
+docs/*
+
+# Logs and Cache
+**/*.log
+.eslintcache
+*.swp
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+CHANGELOG
+LICENSE
+
+# IDE and Editor Files
+*.sublime-*
+*.code-workspace
+
+# Test Files
+__tests__
+__mocks__
+*.test.*
+*.spec.*
+
+# Temporary Files
+*.tmp
+*.temp
+.cache
+
+# Miscellaneous
+.editorconfig
+.prettierrc
+.eslintrc
+jest.config.*
