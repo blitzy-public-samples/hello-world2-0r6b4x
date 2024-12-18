@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="Hello World React TypeScript application demonstrating minimal setup and configuration" />
+    <meta name="robots" content="index,follow" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()" />
+    <meta http-equiv="Strict-Transport-Security" content="max-age=31536000; includeSubDomains" />
+
+    <!-- Favicon and Manifest -->
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" />
+
+    <title>Hello World</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app</noscript>
+    
+    <!-- React Application Mount Point -->
+    <div id="root"></div>
+
+    <!-- Deferred Application Bundle -->
+    <script defer src="%PUBLIC_URL%/static/js/bundle.js"></script>
+  </body>
+</html>
