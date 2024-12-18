@@ -1,0 +1,22 @@
+node_modules/*
+
+# Build outputs
+build/*
+dist/*
+
+# Test coverage
+coverage/*
+
+# Configuration files
+*.config.js
+*.config.ts
+
+# Static assets
+public/*
+
+# Generated TypeScript declarations
+src/react-app-env.d.ts
+
+# Test configuration
+src/reportWebVitals.ts
+src/setupTests.ts
