@@ -1,0 +1,9 @@
+# Version: 1.0
+# Last Updated: 2024
+
+# Default rule for all web crawlers
+User-agent: *
+Allow: /
+
+# Note: This configuration allows unrestricted access to all public content
+# as this is a simple Hello World application with no private/restricted areas
