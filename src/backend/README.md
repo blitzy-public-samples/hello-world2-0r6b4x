@@ -3,8 +3,8 @@
 A minimal Node.js + Express server exposing two plain-text endpoints. Runs as an independent process, separate from the React SPA in `src/web/`.
 
 ## Prerequisites
-- Node.js >= 16.14.0
-- npm >= 8.3.0
+- Node.js >= 16.0.0
+- npm >= 8.0.0
 
 ## Install
 ```bash
