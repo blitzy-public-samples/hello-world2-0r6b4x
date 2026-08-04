@@ -154,6 +154,12 @@ curl http://localhost:3001/good-evening # -> Good evening
 
 See [`src/backend/README.md`](src/backend/README.md) for full backend details.
 
+## Enterprise Adoption Readiness
+
+An enterprise-adoption readiness assessment of this repository is maintained alongside the other project documents, covering strengths, weaknesses, risks, modernization opportunities and recommended next steps. It is an assessment only: it records findings and recommendations against a specific commit and applies no remediation.
+
+See [Enterprise Adoption Readiness Assessment](documentation/Enterprise%20Adoption%20Readiness%20Assessment.md).
+
 ## Development Guidelines
 
 ### Code Style

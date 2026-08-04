@@ -1,0 +1,1253 @@
+# Enterprise Adoption Readiness Assessment
+
+## Scope and Method
+
+**Repository:** `hello-world2` — a two-package repository containing a React + TypeScript single-page application (`src/web/`) and a newly added minimal Express service (`src/backend/`).
+
+**Branch assessed:** `blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc`
+
+**Commit assessed (HEAD):** `dcc5b7f4adc7791b09c527284d0d849c993e5a03` (short `dcc5b7f`)
+
+**Tracked files at that commit:** 80 (`git ls-files`)
+
+**Question this document answers:** if an enterprise engineering organisation adopted this repository as-is — took ownership of it, put it in a regulated delivery pipeline, and ran it in production — what would it find? The assessment therefore judges the repository against enterprise expectations for reproducible builds, enforced quality gates, operability, security posture, deployability, documentation accuracy and governance. It does **not** judge the repository against its own origin brief, which asked for something deliberately much smaller: *"build me a hello world webpage. please make it simple, do as little as possible. Use reactjs and typescript as the tech stack."* (`documentation/Input Prompt.md`). That gap between origin intent and enterprise expectation is the central theme of everything below.
+
+### What was inspected
+
+| Area | Files read |
+|---|---|
+| Backend service (the feature delivered on this branch) | `src/backend/server.js`, `src/backend/package.json`, `src/backend/server.test.js`, `src/backend/.env.example`, `src/backend/README.md` |
+| SPA source | `src/web/src/index.tsx`, `App.tsx`, `App.test.tsx`, `setupTests.ts`, `reportWebVitals.ts`, `react-app-env.d.ts`, `components/HelloWorld/*`, `components/index.ts`, `config/*`, `hooks/*`, `styles/*`, `types/index.ts`, `utils/*`, `public/*` |
+| SPA toolchain | `src/web/package.json`, `tsconfig.json`, `webpack.config.ts`, `jest.config.ts`, `babel.config.ts`, `.eslintrc.json`, `.eslintignore`, `.prettierrc`, `src/web/README.md` |
+| CI / automation | `.github/workflows/build.yml`, `test.yml`, `deploy.yml`, `.github/dependabot.yml` |
+| Governance | `.github/CODEOWNERS`, `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/bug_report.md`, `.github/ISSUE_TEMPLATE/feature_request.md`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` |
+| Infrastructure as code | `infrastructure/docker/Dockerfile`, `docker-compose.yml`, `nginx.conf`, `.dockerignore`; `infrastructure/terraform/{main,variables,outputs,providers,versions}.tf`, `modules/{static-hosting,cdn}/*`, `environments/{dev,prod}/*` |
+| Repository configuration | `.gitignore` |
+| Documentation | root `README.md`, `documentation/Input Prompt.md`, `documentation/Product Requirements Document (PRD).md`, `documentation/Project Guide.md`, `documentation/Technical Specifications.md`, `blitzy/documentation/Project Guide.md` |
+
+### What was executed
+
+Every command below was run against this checkout and its real output is reproduced in the [Evidence Appendix](#evidence-appendix). No command was permitted to modify a tracked file, and `git status --porcelain` was re-checked after each one to confirm none did.
+
+| Command | Working directory | Purpose |
+|---|---|---|
+| `git ls-files`, `git diff main...HEAD --stat`, `git branch -a`, `git check-ignore -v --no-index` | repository root | Inventory, branch backlog, ignore-rule verification |
+| `npm test` | `src/backend` | Backend suite result |
+| `npm audit --json` | `src/backend` | Backend advisory posture |
+| `node server.js` + HTTP requests to `/` and `/good-evening`, with and without a `PORT` override | `src/backend` | Endpoint behaviour and configurability |
+| `npx tsc --noEmit` | `src/web` | SPA type/parse gate |
+| `npx eslint src --ext .ts,.tsx --no-fix` | `src/web` | SPA lint gate (check-only; the project's own `lint` script rewrites files) |
+| `npx jest --watchAll=false --ci` | `src/web` | SPA test gate |
+| `npm ci --dry-run` | `src/web`, and a scratch directory holding only the *tracked* manifest | Reproducibility of a clean install, in the working tree and in a simulated fresh clone |
+| `npm view <package> version` | — | Current published version of each declared dependency |
+| `docker compose config`, `docker build --target production` | repository root | Compose validity and Docker stage resolution |
+| `terraform init -backend=false`, `terraform fmt -check -recursive` | a **copy** of `infrastructure/terraform` | Terraform configuration validity and formatting |
+
+### What was deliberately **not** done
+
+- **Nothing was fixed, corrected, upgraded or refactored.** This is an assessment, not a remediation. Every finding below is reported and left in place. `git diff` for `src/backend`, `src/web`, `.github`, `infrastructure`, `.gitignore`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and the pre-existing `documentation/*.md` files is empty at the time of writing.
+- **No dependency, script, endpoint, middleware or test was added**, and no declared version was changed anywhere. Where this document recommends an upgrade, that recommendation exists as prose only.
+- **No documentation discrepancy was corrected.** The inaccurate statements found in `README.md`, `SECURITY.md`, `documentation/Technical Specifications.md`, `documentation/Product Requirements Document (PRD).md` and `documentation/Project Guide.md` are named — with path and line — and left exactly as they are.
+- **Terraform and Docker were exercised without touching `infrastructure/`.** Terraform ran against a throwaway copy of the tree; the Docker probe produced no retained image.
+
+### Method and honesty rules applied
+
+1. Every claim is traceable to a file path (with line numbers where a specific line matters) or to a command whose real output appears in the appendix.
+2. No CVE identifier, metric, version, date or path is asserted from memory. External version facts come from `npm view`; the Node.js end-of-life date comes from the Node.js project's own announcement, cited in the appendix.
+3. Where a plausible-sounding claim could not be verified, it is either omitted or explicitly labelled. [Claims Deliberately Not Made](#claims-deliberately-not-made) lists every such case and why.
+4. Findings derived from reading configuration rather than from running a validator are labelled *static inspection*.
+5. No secret value, environment-variable value, or absolute local path appears anywhere in this document. All paths are repository-relative.
+
+All five requested sections follow, in order: [Strengths](#strengths), [Weaknesses](#weaknesses), [Risks](#risks), [Modernization Opportunities](#modernization-opportunities), [Recommended Next Steps](#recommended-next-steps).
+
+## Executive Summary
+
+### Verdict
+
+**Not ready for enterprise adoption in its current state.** The repository is an excellent *teaching artefact* and a credible *starting point*, but it is not an adoptable enterprise asset today. The gap is not conceptual — the intended architecture is sound and the governance scaffolding is unusually complete for a project of this size. The gap is that almost none of the scaffolding actually executes.
+
+Three facts drive the verdict, and each is reproducible from this checkout:
+
+1. **The build is not reproducible and the pipeline cannot be green.** No lockfile is committed (`.gitignore` L88–L89), yet all three workflows run `npm ci` against `cache-dependency-path: src/web/package-lock.json` — a path that cannot exist in a fresh clone. Simulating that fresh clone reproduces the failure exactly: `npm error code EUSAGE … The npm ci command can only install with an existing package-lock.json`. Even past that step, `npx tsc --noEmit` reports **13 errors**, `npx eslint src --ext .ts,.tsx --no-fix` reports **92 problems (88 errors, 4 warnings)**, and `npx jest --watchAll=false --ci` reports **2 suites failed, 0 tests run**. A first-day adopter inherits a red pipeline on every one of its three workflows.
+2. **The runtime contract is three years past end of life, and nothing in the repository would notice.** Both manifests declare `engines.node >= 16.0.0`, all three workflows pin `node-version: [16.x]`, and `infrastructure/docker/Dockerfile` L2 builds on `node:16-alpine`. Node.js 16 reached end of life on **11 September 2023**. Meanwhile the runtime that actually executed this assessment is **Node v22.23.2 / npm 10.9.8** — so the documented contract and the tested reality are different major versions three lines apart, and no `engine-strict`, CI matrix entry or version check reconciles them.
+3. **What was shipped has no operational surface and no deployment path.** The Express service in `src/backend/server.js` is 7 lines and correct for what it claims, but it has no logging, no health or readiness endpoint, no graceful shutdown, no error-handling or 404 middleware, no `helmet`, no CORS policy and no rate limiting. It appears in no workflow (all three set `working-directory: src/web`), in no container image (the `Dockerfile` builds the SPA only), in no Terraform resource, and in no `CODEOWNERS` rule. And the deployment workflow that does exist can never fire: `deploy.yml` L6 waits on `workflows: ["Build"]` while `build.yml` L1 declares `name: Build and Test`.
+
+The most important structural observation is a mismatch of *claims* rather than of code. The repository's documentation describes a production-ready, WCAG-compliant, CSP-protected, HTTPS-enforced system with 99.9 % availability targets. Its own `documentation/Project Guide.md` L82–L93 simultaneously lists *Security Headers*, *SSL Certificate*, *Performance Monitoring* and *Environment Variables* as **Pending**. Both statements are committed to the same repository. For an enterprise adopter, that inconsistency is more dangerous than any single defect, because it invites the adopter to skip controls they believe are already in place.
+
+### Rating vocabulary
+
+Ratings below are assigned per dimension using this scale. A dimension is rated on what is **verifiably true in this checkout**, not on what the documentation asserts.
+
+| Rating | Meaning |
+|---|---|
+| **Strong** | Meets enterprise expectations as-is; no remediation required before adoption. |
+| **Adequate** | Fundamentally sound; needs additive hardening but nothing is broken. |
+| **Weak** | Present but materially incomplete; adoption requires significant work. |
+| **Critical** | Present in name only, or actively misleading; must be addressed before adoption. |
+| **Absent** | The capability does not exist in the repository at all. |
+
+### Dimension scorecard
+
+| # | Dimension | Rating | Basis (verifiable in this checkout) |
+|---|---|---|---|
+| 1 | Architecture | **Adequate** | Clean two-package separation (`src/web/`, `src/backend/`) with zero cross-imports; the service is small, readable and correctly exports its app. No shared contract, no root manifest, no workspace tooling. |
+| 2 | Build & Release Reproducibility | **Critical** | No lockfile committed (`.gitignore` L88–L89); `npm ci` fails in a simulated fresh clone; `src/web` `build` script passes `--optimize-minimize`, removed in webpack 5; `webpack.config.ts` L180 references `config` inside its own initializer; `clean` deletes `dist` while webpack writes to `build`. |
+| 3 | Quality Gates & Testing | **Weak** | Backend: 2/2 pass, but no lint, no format check, no coverage configuration. SPA: 13 type/parse errors, 92 lint problems, 2 of 2 suites fail to load, and its declared 100 % coverage thresholds (`jest.config.ts` L28–L35) can never be evaluated. `prebuild` runs `lint --fix`, so building rewrites source. |
+| 4 | Security | **Weak** | Genuine positives: `app.disable('x-powered-by')`, zero committed secrets, zero `npm audit` advisories in `src/backend`, no data store. Against that: no `helmet`/CORS/rate limiting, `npm audit` in CI is `continue-on-error: true`, no SAST, no secret scanning, no SBOM, and every HTTP security header is either declared in a container that cannot start or as a `<meta>` tag browsers do not honour. |
+| 5 | Operability & Observability | **Absent** | No structured logging, no health or readiness endpoint (`GET /health` returns 404), no graceful `SIGTERM` handling, no request IDs, no metrics, no tracing, no alerting. `reportWebVitals.ts` L44–L48 pipes web-vitals to `console.log` and nowhere else. |
+| 6 | CI/CD | **Critical** | Three workflows, none of which can succeed; `deploy.yml` waits on a workflow name that does not exist and calls `actions/deploy-pages@v2` with no artifact-upload step; zero backend coverage; actions pinned to `checkout@v3`, `setup-node@v3`, `deploy-pages@v2`. |
+| 7 | Infrastructure & Deployment | **Critical** | `docker build --target production` fails with *target stage "production" could not be found*; `nginx.conf` is a full server config copied into `conf.d/`, where its top-level directives are illegal; `terraform init -backend=false` fails with 7 errors; the backend has no image and no deployment target at all. |
+| 8 | Documentation Accuracy | **Critical** | Broken badge URLs (`README.md` L3–L4); wrong toolchain (L25 "Create React App 5.x", L28 "Jest 27.x"); a directory layout (L97–L107) that does not match the tree; security claims (L185, L187) contradicted by both the code and the repository's own pending-tasks list; `documentation/Technical Specifications.md` L304 and L494 still assert the project has no API after an API shipped. |
+| 9 | Governance & Compliance | **Weak** | The full file set exists (MIT `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS`, issue templates) — but every `CODEOWNERS` owner is a placeholder, the security contact is `security@organization.com`, `SECURITY.md` L153 ends with the literal text `Last Updated: [Current Date]`, and `.github/pull_request_template.md` is 0 bytes. |
+| 10 | Dependency Currency | **Weak** | Dependabot now covers `/src/web`, `/src/backend` and GitHub Actions — a real strength — but 8 update branches sit unmerged, and the declared stack trails current published versions by whole majors (React 18 vs 19, styled-components 5 vs 6, TypeScript 4.9 vs 7, ESLint 8 vs 10, Prettier 2 vs 3, Express 4 vs 5, Jest 29 vs 30). |
+
+**Aggregate across the ten dimensions:** 0 Strong · 1 Adequate (#1) · 4 Weak (#3, #4, #9, #10) · 4 Critical (#2, #6, #7, #8) · 1 Absent (#5).
+
+The four Critical ratings — reproducibility, CI/CD, infrastructure and documentation accuracy — are all *pipeline-and-truth* problems rather than product problems, which is encouraging: they are largely mechanical to fix, and none of them requires re-architecting the application. The single Absent rating (operability) is the one that requires genuinely new code, and it is the one an enterprise operations function would insist on first.
+
+## Strengths
+
+These are the things an adopting organisation would keep. Each is stated at the size it actually is — none is inflated, and several are deliberately narrower than the repository's own documentation claims.
+
+### S1 — The Express entry point is minimal, readable and correct
+
+`src/backend/server.js` is seven lines end to end. It requires Express, creates the app, registers two routes, exports the app, and listens only when run directly. There is nothing to misread and nothing dead. For a service whose entire contract is two static strings, this is exactly the right amount of code, and it is a genuine asset: a reviewer can hold the whole service in their head.
+
+### S2 — `x-powered-by` is explicitly disabled
+
+`src/backend/server.js` L3 calls `app.disable('x-powered-by')`. Verified at runtime: the `X-Powered-By` response header is absent from both endpoints. This is a small, deliberate, correctly-placed hardening step — framework fingerprinting is removed by configuration rather than by a proxy rewrite, which is the right layer for it.
+
+### S3 — The app is exported with a guarded `listen`, so tests never open a port
+
+`src/backend/server.js` L6–L7: `module.exports = app;` followed by `if (require.main === module) app.listen(...)`. This is the idiomatic Express testability pattern. It means `server.test.js` can import the app and exercise it in-process, with no port binding, no race on startup, and no cleanup. Many far larger codebases get this wrong; this one does not.
+
+### S4 — The backend test suite exists and passes
+
+`npm test` in `src/backend` exits 0: `Test Suites: 1 passed, 1 total`, `Tests: 2 passed, 2 total`, in 0.773 s. `src/backend/server.test.js` asserts both status code and exact body for both routes (`.expect(200, 'Hello world')` and `.expect(200, 'Good evening')`). Asserting the exact body rather than a substring is the stronger choice and is what makes the suite a real regression guard for the two contracts that matter.
+
+### S5 — Both endpoints behave exactly as documented
+
+Verified against a running process: `GET /` returns HTTP 200 with the body `Hello world` (11 bytes) and `GET /good-evening` returns HTTP 200 with the body `Good evening` (12 bytes). These match `src/backend/README.md` L24–L27 and root `README.md` L131–L136 character for character. Documentation-to-behaviour fidelity is rare in this repository (see [Weaknesses](#weaknesses)); here it holds.
+
+### S6 — Port is configurable, and the contract is documented
+
+`src/backend/server.js` L7 reads `process.env.PORT || 3001`, and `src/backend/.env.example` documents the single variable as `PORT=3001`. Verified: with `PORT` set to `4000`, both endpoints served correctly on that port. Externalised configuration with a committed `.env.example` and a git-ignored real `.env` (`.gitignore` L15–L20) is the correct pattern, and choosing 3001 keeps the service clear of the SPA dev server on 3000.
+
+### S7 — Both manifests are `private` and declare `engines`
+
+`src/backend/package.json` L4 and `src/web/package.json` L4 both set `"private": true`, which prevents accidental publication to the public npm registry — a real and frequently-missed safeguard for internal code. Both also declare `engines` (`node >= 16.0.0`, `npm >= 8.0.0`), so a runtime contract is at least *stated*. That the stated version is end-of-life is a weakness (see [W4](#w4--the-declared-runtime-is-three-years-past-end-of-life-and-diverges-from-the-runtime-actually-used)); that a contract is declared at all is a strength.
+
+### S8 — Clean package separation with no cross-coupling
+
+`src/backend/` and `src/web/` are independent npm packages with independent dependency trees. `src/backend/server.js` imports nothing from `src/web/`, and no file under `src/web/src/` imports anything from `src/backend/`. The two run as separate processes. This means the SPA's substantial toolchain problems cannot break the service, and the service can be extracted, containerised or replaced without touching the frontend — the correct starting shape for a service that may later grow.
+
+### S9 — Dependency automation covers every package and the workflows themselves
+
+`.github/dependabot.yml` declares three `updates` entries: npm for `/src/web` (L6–L36), `github-actions` for `/` (L39–L48) and npm for `/src/backend` (L51–L65). Covering GitHub Actions alongside application dependencies is a step many teams skip, and the `/src/web` entry is thoughtfully configured with `allow` rules for both production and development dependencies, `versioning-strategy`, labels, a conventional-commit prefix, and three logical groups (`react`, `typescript-eslint`, `testing`) so related bumps arrive as one reviewable PR. The newly added `/src/backend` entry means the service will not silently rot.
+
+### S10 — A complete governance file set is present
+
+The repository ships an MIT `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/CODEOWNERS`, and both issue templates (`.github/ISSUE_TEMPLATE/bug_report.md`, `feature_request.md`). Structurally this is what an enterprise intake checklist looks for, and having the files in place means the remaining work is *filling them in* rather than authoring them from scratch. The contents need attention ([W20](#w20--codeowners-is-entirely-placeholders-and-does-not-cover-the-backend), [W21](#w21--securitymd-promises-a-security-programme-the-repository-does-not-have)), but the scaffolding is genuinely valuable.
+
+### S11 — Infrastructure is committed as code, not as tribal knowledge
+
+`infrastructure/` contains 4 Docker artefacts and 13 Terraform files describing a static-hosting and CDN topology, with separate `dev` and `prod` environment directories. The intent is legible: S3 static hosting behind CloudFront with Cloudflare DNS, encryption, versioning and logging enabled, a public-access block, TLS 1.2 minimum, and a CloudFront response-headers policy. The configuration does not currently validate ([W25](#w25--terraform-does-not-initialise), [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were)), but the *design* is recorded in the repository rather than in someone's head, which is a materially better starting position than an undocumented console-built environment.
+
+### S12 — TypeScript, ESLint and Prettier are all configured for the SPA
+
+`src/web/tsconfig.json` enables `strict`, `forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch` and `isolatedModules` — a genuinely strict baseline rather than a permissive one. `src/web/.eslintrc.json` layers `eslint:recommended`, `plugin:@typescript-eslint/recommended`, `plugin:react/recommended` and `plugin:react-hooks/recommended`, then adds roughly 30 explicit rules including `@typescript-eslint/no-explicit-any: error` and a `naming-convention` policy. `.prettierrc` pins formatting. The *standards* an enterprise would want to impose are already written down; the problem is enforcement, not intent.
+
+### S13 — No secret, credential or data store exists anywhere
+
+`git ls-files` filtered for `.env`, `package-lock.json` and `yarn.lock` returns nothing; the only environment file tracked is `src/backend/.env.example`, containing one non-sensitive line. `.gitignore` L57–L66 additionally excludes `*.pem`, `*.key`, `*.crt`, `*.cert`, `*.p12`, `*.pfx`, `.npmrc` and `.yarnrc`. There is no database, no ORM, no migration, no session store and no user data anywhere in the repository. The data-privacy and secret-exposure surface is therefore close to zero — which is both a real security strength and a real advantage for an adopter, because there is no legacy data model to inherit or migrate.
+
+### S14 — The backend dependency tree currently reports zero advisories
+
+`npm audit --json` in `src/backend` reports `info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: 0` across 356 resolved packages (69 production, 288 development, 1 optional). No advisory data is claimed beyond that output, and no CVE identifier is cited anywhere in this document. Express `^4.21.2` currently resolves to `4.22.2`, which is a maintained release of the 4.x line.
+
+### A note on what is **not** listed as a strength
+
+Three claims in root `README.md` are commonly mistaken for strengths and are deliberately excluded here, because nothing in this repository substantiates them. They appear in [Weaknesses](#weaknesses) as documentation-accuracy findings instead:
+
+| Claim | Location | Why it is not a strength |
+|---|---|---|
+| "WCAG 2.1 Level A compliance" | `README.md` L17 | No accessibility test, linter, axe integration or audit exists anywhere in the repository. `HelloWorld.tsx` does carry ARIA attributes, but one of them (`role="text"`, L34) is not a valid ARIA role, and no automated check would have caught that. |
+| "CSP headers configured" | `README.md` L185 | A CSP exists only in `infrastructure/docker/nginx.conf` L67 — inside a container that cannot start ([W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were)) — and even there the `add_header` directives inside the `location` blocks at L79 and L85 discard the inherited server-level headers. The Express service sets no security headers at all. |
+| "Strict HTTPS enforcement" | `README.md` L187 | `nginx.conf` L61 listens on port 80 only, with no TLS and no HTTP-to-HTTPS redirect. The HSTS header at L71 is emitted over plain HTTP, and the `<meta http-equiv="Strict-Transport-Security">` tag in `src/web/public/index.html` L17 is ignored by browsers, which honour HSTS only as an HTTP response header. |
+
+## Weaknesses
+
+Every item carries either a path with line numbers or the real output of a command reproduced in the [Evidence Appendix](#evidence-appendix). Findings labelled *static inspection* were derived by reading configuration because the relevant validator aborts before reaching them.
+
+### Build and release reproducibility
+
+#### W1 — No lockfile is committed, while all three workflows require one
+
+`.gitignore` L88 ignores `yarn.lock` and L89 ignores `package-lock.json`, and `git ls-files` confirms neither is tracked for either package. Yet `build.yml` L47, `test.yml` L41 and `deploy.yml` L53 all run `npm ci`, and all three configure `cache-dependency-path: src/web/package-lock.json` (L44, L37, L49 respectively) — a path that cannot exist in a fresh clone.
+
+Simulating that fresh clone with only the tracked manifest present reproduces the failure exactly:
+
+```text
+npm error code EUSAGE
+npm error The `npm ci` command can only install with an existing package-lock.json or
+npm error npm-shrinkwrap.json with lockfileVersion >= 1.
+```
+
+Note that running `npm ci --dry-run` inside this working tree *succeeds*, because a prior `npm install` left a git-ignored `package-lock.json` on disk. That is precisely what makes this defect dangerous: it is invisible to anyone whose working copy has already been installed, and fatal to every clean checkout and every CI run. Beyond CI, the absence of a lockfile means no two installs are guaranteed identical, transitive dependencies float, and there is no artefact to attach an SBOM or a provenance attestation to.
+
+#### W2 — The SPA build script passes a flag webpack 5 removed
+
+`src/web/package.json` L11: `"build": "webpack --mode production --optimize-minimize"`. `--optimize-minimize` was a webpack 4 CLI flag and does not exist in webpack 5, which the project declares at L49 (`"webpack": "^5.75.0"`). It is also redundant: `webpack.config.ts` L110 already sets `optimization.minimize: isProduction`. The production build command is therefore wrong in a way that has no upside.
+
+#### W3 — The webpack configuration references itself before it is assigned, and writes to a directory the clean script does not delete
+
+`src/web/webpack.config.ts` L177–L187 spreads a production-only object that contains `...config.plugins!` at L180 — a reference to the `const config` whose initialiser is still being evaluated. Compounding this, the exported factory reads `env.mode` (L21–L23) while the npm scripts pass `--mode` as a CLI option, which webpack surfaces through the second (`argv`) parameter rather than through `env`; `isDevelopment` therefore resolves false and the production branch containing the self-reference is the branch that always executes.
+
+Separately, `webpack.config.ts` L34 sets `output.path` to `build`, while `src/web/package.json` L16 defines `"clean": "rimraf dist"`. The clean step deletes a directory the build never writes, and root `README.md` L123 documents the output as `build/` while the script targets `dist`.
+
+#### W4 — The declared runtime is three years past end of life, and diverges from the runtime actually used
+
+| Where the runtime is pinned | Value |
+|---|---|
+| `src/backend/package.json` L6–L9 | `node >= 16.0.0`, `npm >= 8.0.0` |
+| `src/web/package.json` L5–L8 | `node >= 16.0.0`, `npm >= 8.0.0` |
+| `.github/workflows/build.yml` L30 | `node-version: [16.x]` |
+| `.github/workflows/test.yml` L22 | `node-version: [16.x]` |
+| `.github/workflows/deploy.yml` L34 | `node-version: [16.x]` |
+| `infrastructure/docker/Dockerfile` L2, L6 | `FROM node:16-alpine`, `ARG NODE_VERSION=16` |
+| root `README.md` L26, L35 | "Node.js 16.x+", "Node.js >= 16.x" |
+| `CONTRIBUTING.md` L31 | "Node.js 16.x or higher" |
+
+Node.js 16 reached end of life on **11 September 2023**, brought forward seven months from its originally planned April 2024 date to coincide with the end of support for OpenSSL 1.1.1 (source cited in the appendix). It has received no security patch of any kind since.
+
+The divergence is the second half of the finding: this assessment ran on **Node v22.23.2 with npm 10.9.8**. The runtime the repository documents, pins in CI and builds its container on is three LTS lines behind the runtime that actually executes it. Nothing reconciles the two — there is no `.nvmrc`, no `engine-strict` setting, no `volta` pin and no CI job that runs on anything other than 16.x. An adopter cannot tell from the repository which runtime is supported, and the answer differs depending on which file they read.
+
+#### W5 — Building the SPA rewrites the source tree, including in CI
+
+`src/web/package.json` L17 defines `"prebuild": "npm run clean && npm run validate"`; L15 defines `"validate": "npm run type-check && npm run lint && npm run test"`; and L13 defines `"lint": "eslint src --ext .ts,.tsx --fix"`. Because npm runs `prebuild` automatically before `build`, every `npm run build` invokes ESLint in `--fix` mode and rewrites files under `src/web/src/`.
+
+This is a correctness problem, not a style preference: a build must be a pure function of its inputs. Here the build mutates its own inputs, so the second build in a row can differ from the first. `build.yml` L59 and the Docker build at `Dockerfile` L35 both trigger this path, meaning CI and the container image build both modify the checked-out working tree. It also makes the `lint` script unusable as a gate — there is no check-only linting entry point in the manifest at all, which is why this assessment invoked `npx eslint … --no-fix` directly.
+
+### Quality gates and testing
+
+#### W6 — The SPA does not type-check: 13 errors, all syntax-level
+
+`npx tsc --noEmit` in `src/web` exits 2 with exactly **13 errors** across 5 files. These are not type mismatches — they are parse failures, meaning the affected files are not valid TypeScript at all:
+
+| File | Errors | Root cause (read from source) |
+|---|---|---|
+| `src/web/src/config/constants.ts` | L20, L29, L41 — `TS1005` | `as const` is applied to *type alias declarations* (`type AppConfig = { … } as const;`), which is not valid syntax. |
+| `src/web/src/utils/testUtils.ts` | L40 ×2 `TS1005`, L42 `TS1161`, L43 `TS1128`, L44 `TS1128`, L77 `TS1161` | The file contains JSX (L38–L44 renders `<ThemeProvider theme={defaultTheme}>`) but carries a `.ts` extension, so `<ThemeProvider …>` is parsed as a type assertion. |
+| `src/web/src/components/HelloWorld/index.ts` | L39 — `TS1443` | Raw English prose and a fenced <code>```typescript</code> block are committed as TypeScript source from roughly L20 onward. |
+| `src/web/src/components/index.ts` | L36 — `TS1443` | Same pattern. |
+| `src/web/src/utils/errorBoundary.tsx` | L158 `TS1443`, L162 `TS1128` | Same pattern. |
+
+Three source files containing un-commented documentation prose and markdown code fences is a review-process finding as much as a code finding: it means these files were committed without anyone compiling them.
+
+#### W7 — The SPA does not lint: 92 problems
+
+`npx eslint src --ext .ts,.tsx --no-fix` in `src/web` exits 1 with **92 problems (88 errors, 4 warnings)** across 20 files. Distribution by rule:
+
+| Count | Rule |
+|---|---|
+| 61 | `no-trailing-spaces` |
+| 7 | `arrow-body-style` |
+| 6 | `@typescript-eslint/naming-convention` |
+| 4 | `no-console` |
+| 4 | `@typescript-eslint/no-unused-vars` |
+| 3 | Parsing error — module declaration names may only use `'` or `"` quoted strings |
+| 2 | `@typescript-eslint/no-empty-function` |
+| 1 each | `curly`, `@typescript-eslint/no-empty-interface`, `arrow-parens`, Parsing error `'>' expected`, Parsing error `';' expected` |
+
+Two structural observations sit behind the raw count. First, the five parsing errors are the same files as [W6](#w6--the-spa-does-not-type-check-13-errors-all-syntax-level) — the linter cannot analyse them either, so their real defect count is unknown. Second, `src/web/.eslintignore` excludes `*.config.js`, `*.config.ts`, `src/setupTests.ts` and `src/reportWebVitals.ts`, which means the broken import that breaks the entire test suite ([W8](#w8--both-spa-test-suites-fail-to-load-so-zero-tests-execute)) sits in a file the linter is configured never to look at.
+
+There is also a live contradiction between the two style tools: `.prettierrc` sets `"arrowParens": "avoid"` while `.eslintrc.json` L90 sets `"arrow-parens": ["error", "always"]`. Because the rule is re-enabled in `rules` after `prettier` is listed in `extends`, the ESLint rule wins, and running Prettier reintroduces the violation. One `arrow-parens` error was observed. `.prettierrc` additionally sets `jsxBracketSameLine`, deprecated since Prettier 2.4 and removed in Prettier 3, and `vueIndentScriptAndStyle`, which is inert in a repository with no Vue. No `format` or `format:check` script exists, so Prettier is configured but never executed.
+
+#### W8 — Both SPA test suites fail to load, so zero tests execute
+
+`npx jest --watchAll=false --ci` in `src/web` exits 1:
+
+```text
+FAIL src/App.test.tsx
+    Cannot find module '../utils/testUtils' from 'src/setupTests.ts'
+FAIL src/components/HelloWorld/HelloWorld.test.tsx
+    Cannot find module '../utils/testUtils' from 'src/setupTests.ts'
+Test Suites: 2 failed, 2 total
+Tests:       0 total
+```
+
+Root cause: `src/web/src/setupTests.ts` L8 reads `import { renderWithProviders } from '../utils/testUtils';`. Because `setupTests.ts` lives at `src/web/src/setupTests.ts`, the specifier `../utils/testUtils` resolves to `src/web/utils/testUtils`, which does not exist; the real file is `src/web/src/utils/testUtils.ts`, i.e. `./utils/testUtils`. Because `jest.config.ts` L38 registers this file in `setupFilesAfterEnv`, the failure is global — every suite dies during environment setup, so **`Tests: 0 total`** and not a single assertion in the SPA has ever run in this state.
+
+Two aggravating factors: the target file `utils/testUtils.ts` would not parse even if the path were right ([W6](#w6--the-spa-does-not-type-check-13-errors-all-syntax-level)); and `jest.config.ts` L52–L56 maps stylesheet and image imports to `<rootDir>/__mocks__/styleMock.js` and `<rootDir>/__mocks__/fileMock.js`, but there is no `src/web/__mocks__` directory in the repository, and `identity-obj-proxy` (referenced at L53) is not a declared dependency. Three independent defects sit between this suite and a green run.
+
+#### W9 — The SPA renders a blank page because no `ThemeProvider` wraps the tree
+
+`src/web/src/index.tsx` L38–L42 renders `<React.StrictMode><App /></React.StrictMode>`. `App.tsx` L23–L34 renders `<GlobalStyles />` and `<HelloWorld message="Hello World" />` inside a fragment. Neither introduces a styled-components `ThemeProvider`.
+
+But `src/web/src/components/HelloWorld/styles.ts` reads theme values in five places — L16 `min-height: ${({ theme }) => theme.spacing.vertical};`, L19 `padding: … theme.spacing.horizontal`, L22 `background-color: … theme.colors.background`, and L37–L40 for typography and colour. With no provider in the tree, styled-components supplies an empty theme object, so `theme.spacing` is `undefined` and reading `.vertical` from it throws during render — which, under a React 18 root with no error boundary at the top level, unmounts the tree and leaves an empty `<div id="root">`.
+
+Searching the whole SPA source confirms the omission: `ThemeProvider` appears **only** in `src/web/src/utils/testUtils.ts` (L13, L40, L42), i.e. the wiring exists for tests and was never applied to the application. `styles.ts` L3 also imports `defaultTheme` without using it, which is the residue of the same mistake.
+
+This is asserted from source rather than from a rendered page, because a production bundle cannot currently be produced at all ([W2](#w2--the-spa-build-script-passes-a-flag-webpack-5-removed), [W3](#w3--the-webpack-configuration-references-itself-before-it-is-assigned-and-writes-to-a-directory-the-clean-script-does-not-delete)).
+
+#### W10 — Seven tools the SPA depends on are never declared
+
+`src/web/package.json` declares neither `jest`, `ts-jest`, `ts-node`, `ts-loader`, `@types/node`, `rimraf` nor `identity-obj-proxy`, yet each is required for a declared script or configuration file to work:
+
+| Missing declaration | Required by |
+|---|---|
+| `jest` | `package.json` L12 `"test": "jest --coverage --watchAll=false"` |
+| `ts-jest` | `jest.config.ts` L48 `transform: { '^.+\\.(ts\|tsx)$': 'ts-jest' }` |
+| `ts-node` | `webpack.config.ts` and `jest.config.ts` are TypeScript config files |
+| `ts-loader` | `webpack.config.ts` L48 `loader: 'ts-loader'` |
+| `@types/node` | `webpack.config.ts` L1/L34 use `path` and `__dirname` |
+| `rimraf` | `package.json` L16 `"clean": "rimraf dist"` |
+| `identity-obj-proxy` | `jest.config.ts` L53 `moduleNameMapper` |
+
+The manifest is therefore not a complete description of the package. Any environment that installs strictly from it — a fresh clone, a CI runner, a container build — is missing tooling that the scripts assume. Only `jest-environment-jsdom` and `@jest/types` (both 29.x) hint that Jest 29 is the intended version.
+
+#### W11 — Coverage is either unenforceable or absent
+
+`src/web/jest.config.ts` L28–L35 declares `coverageThreshold.global` at **100 % branches, functions, lines and statements**. That threshold can never be evaluated, because no test suite loads ([W8](#w8--both-spa-test-suites-fail-to-load-so-zero-tests-execute)) — and even if the suites loaded, 100 % global coverage of every non-index, non-test source file is not an achievable gate for this codebase as written. The configured value is aspirational rather than operative.
+
+`src/backend/package.json`, by contrast, declares no Jest configuration at all: no `coverageThreshold`, no `collectCoverageFrom`, and no `--coverage` in its `test` script. The two-test suite that does pass therefore reports no coverage number, and nothing would fail if a future route arrived untested.
+
+#### W12 — The deployment workflow can never trigger, and could not deploy if it did
+
+`deploy.yml` L4–L8 triggers on `workflow_run` with `workflows: ["Build"]`. No workflow in the repository is named `Build`: `build.yml` L1 declares `name: Build and Test`, `test.yml` L1 declares `name: Test`, and `deploy.yml` L1 declares `name: Deploy`. `workflow_run` matches on the workflow's `name`, so the trigger condition is unsatisfiable and the deploy job has never run and cannot run.
+
+Were it to fire, it would still fail. `deploy.yml` L66–L70 calls `actions/deploy-pages@v2` with `artifact_name: github-pages` and `path: src/web/build`, but the workflow contains no `actions/upload-pages-artifact` step and no `actions/configure-pages` step — so no artifact named `github-pages` would exist for `deploy-pages` to publish, and `path` is not an input that `deploy-pages` accepts.
+
+The action versions are also behind: `checkout@v3` (`build.yml` L35, `test.yml` L28, `deploy.yml` L39), `setup-node@v3` (L40, L33, L45) and `deploy-pages@v2` (`deploy.yml` L67). Dependabot has already opened update branches for all three — `dependabot/github_actions/actions/checkout-4`, `setup-node-4` and `deploy-pages-4` — and none has been merged ([W33](#w33--eight-dependency-update-branches-are-open-and-unmerged)).
+
+Two further CI hygiene gaps: `test.yml` duplicates `build.yml`'s test step on identical triggers (`push`/`pull_request` to `main`), doing the same work twice; and only `build.yml` declares `concurrency` (L10–L12) and `timeout-minutes`, so `test.yml` and `deploy.yml` have neither cancellation nor a runtime bound.
+
+#### W13 — The backend has zero CI coverage
+
+All three workflows scope every step to the frontend: `build.yml` L24–L26, `test.yml` L15–L17 and `deploy.yml` L17–L19 each set `defaults.run.working-directory: src/web`. No workflow installs `src/backend`, runs its tests, lints it, audits it, builds an image for it or deploys it. The passing 2/2 backend suite exists only as something a developer may choose to run locally; nothing in the repository requires it to pass before a merge. The feature delivered on this branch is, from CI's point of view, invisible.
+
+Note also that `build.yml` L14–L16 sets `NODE_ENV: production` for the entire job — including the test step at L63 — whereas `test.yml` L44/L51 sets `NODE_ENV: test` for the equivalent step. The same tests run under two different environment configurations depending on which workflow executes them.
+
+### Operability and observability of the shipped service
+
+#### W14 — The Express service has none of the operational controls an enterprise requires
+
+`src/backend/server.js` is 7 lines, and the following are all absent from it and from the package as a whole. Each was confirmed by reading the file and, where observable, by exercising the running process:
+
+| Missing control | Evidence | Consequence for an operator |
+|---|---|---|
+| Structured logging | No logger of any kind; no `console` call; no logging dependency in `src/backend/package.json` | No request log, no error log, no audit trail. A production incident leaves no evidence behind. |
+| Health / readiness endpoint | `GET /health` against the running service returns **404** | No load balancer, Kubernetes probe, or uptime monitor can determine whether the process is serving. Note that `Dockerfile` L75–L76 and `docker-compose.yml` L19 both health-check `/health` — against a path nothing defines. |
+| Graceful shutdown | No `process.on('SIGTERM'…)`; `server.js` L7 calls `app.listen` and retains no server handle | On deploy or scale-in, in-flight requests are severed rather than drained. |
+| 404 handler | `GET /does-not-exist` returns Express's default HTML error page | Unknown routes return an HTML body from a service whose contract is plain text, with no consistent error shape. |
+| Error-handling middleware | No 4-argument error middleware registered | Any future throw returns Express's default handler, which in a non-production `NODE_ENV` includes a stack trace in the response body. |
+| Request correlation IDs | No middleware, no header propagation | Requests cannot be traced across a proxy, a CDN or a log aggregator. |
+| Metrics | No metrics endpoint, no counters, no histograms | No RED/USE signals; capacity and latency are unobservable. |
+| Distributed tracing | No OpenTelemetry or equivalent instrumentation | No span data; latency cannot be attributed. |
+| Timeouts / body limits | No `server.headersTimeout`, no `express.json({ limit })`, no keep-alive tuning | Default Node timeouts apply, unbounded. |
+
+The response `Content-Type` is a related, smaller finding: because `res.send()` is called with a string, both endpoints return `text/html; charset=utf-8` (verified at runtime) rather than `text/plain`, even though the contract in `src/backend/README.md` L24–L27 describes plain-text responses.
+
+#### W15 — There is no security middleware, and no security gate in the pipeline
+
+The service registers no `helmet` (or equivalent header middleware), no explicit CORS policy, no rate limiter, no request-size limit, and no authentication or authorisation of any kind. `app.disable('x-powered-by')` ([S2](#s2--x-powered-by-is-explicitly-disabled)) is the entirety of the service's hardening.
+
+The pipeline offers no compensating control:
+
+- `build.yml` L50–L52 runs `npm audit` with `continue-on-error: true`, so a critical advisory cannot fail the build. `test.yml` and `deploy.yml` do not audit at all.
+- There is no SAST step (no CodeQL, no Semgrep, no equivalent) despite `SECURITY.md` L79 claiming "Static code analysis".
+- There is no secret-scanning workflow despite `SECURITY.md` L69 claiming "Automated security checks in CI/CD pipeline".
+- There is no SBOM generation and no artefact signing or provenance attestation — and with no lockfile ([W1](#w1--no-lockfile-is-committed-while-all-three-workflows-require-one)) there is nothing stable to generate an SBOM from.
+- There is no dependency-review or licence-compliance check on pull requests.
+
+#### W16 — Performance and availability are asserted but never measured
+
+`documentation/Product Requirements Document (PRD).md` §5.1 sets hard non-functional targets — L138 load time < 1.5 s, L139 TTFB < 200 ms, L140 first contentful paint < 1 s, L141 bundle size < 100 KB, L142 memory < 50 MB — and §5.4.1 L163 sets "Application uptime: 99.9%".
+
+Nothing in the repository measures any of them:
+
+- `src/web/src/reportWebVitals.ts` L44–L48 passes `getCLS`, `getFID`, `getFCP`, `getLCP` and `getTTFB` to `console.log`. `src/web/src/index.tsx` L45–L51 supplies a production callback whose entire body is `console.log(metric)` beside the comment "Analytics implementation would go here". No metric ever leaves the browser.
+- No Lighthouse run, no bundle-size budget check and no performance job exists in any workflow.
+- No uptime monitor, synthetic check, SLO definition or alert rule exists anywhere.
+- The build's own performance budget contradicts the PRD: `webpack.config.ts` L189–L190 sets `maxEntrypointSize` and `maxAssetSize` to `512000` bytes with `hints: 'warning'` (L191) — five times the PRD's 100 KB target, and a warning rather than an error.
+- The TTFB target is a *server* metric, set in a document whose own §3.3 (L304) and §5.3 (L494) assert the application has no server.
+
+A 99.9 % availability target with no monitor, no probe and no on-call rotation is not an SLO; it is an aspiration recorded in a file.
+
+### Deployment and infrastructure
+
+#### W17 — The backend has no container image and no deployment path
+
+`infrastructure/docker/Dockerfile` builds the SPA only: L2 uses `node:16-alpine` as a builder, L35 runs `npm run build`, and L39 switches to `nginx:alpine` to serve the resulting static files from `/usr/share/nginx/html` (L54). There is no stage, image, service or manifest anywhere in `infrastructure/` that runs `node server.js`.
+
+`docker-compose.yml` defines two services (`web`, `dev`), both built from `context: ../../src/web` (L7, L48) — the backend directory is never a build context. `infrastructure/terraform/` provisions S3 static hosting and a CDN; there is no compute resource of any kind (no ECS/Fargate task, no Lambda, no EC2, no App Runner) and therefore nowhere for a long-lived Node process to run. The delivery model in the repository is static-file hosting, and the artefact just added is a server.
+
+The practical consequence: the feature delivered on this branch can be run on a developer's machine and nowhere else. There is no path from `git push` to a reachable endpoint.
+
+#### W18 — There is no API contract
+
+The two endpoints are described only in prose — `src/backend/README.md` L23–L27 and root `README.md` L131–L136. There is no OpenAPI or AsyncAPI document, no JSON Schema, no generated client, no versioning scheme (no `/v1` prefix), and no published error-response shape. For an enterprise, this means no contract test, no consumer-driven verification, no gateway import, no automatic SDK generation and no machine-readable record of the interface. Today the interface is two strings, so the cost is low; the point is that the *practice* is absent, and it becomes expensive precisely when the service grows.
+
+#### W19 — There is no root manifest and no workspace tooling
+
+The repository root contains no `package.json`. `src/web/` and `src/backend/` are two entirely independent packages that must each be installed, versioned, linted and tested separately, with no shared configuration and no single command that validates the whole repository.
+
+Concretely, this produces: duplicated `engines` blocks that can drift apart; no shared ESLint/Prettier/TypeScript base configuration (the backend has none at all — no lint script, no `tsconfig`, no formatter); no hoisting, so overlapping dependencies are resolved and cached twice; no `npm run test` at the root, which is part of why CI never learned about the backend ([W13](#w13--the-backend-has-zero-ci-coverage)); and no way to express that the two packages belong to one release train. Both packages are pinned at `version: 1.0.0` with no changelog and no release process to move them.
+
+#### W20 — CODEOWNERS is entirely placeholders and does not cover the backend
+
+`.github/CODEOWNERS` assigns ownership to nine handles, none of which is a real account or team:
+
+| Line | Pattern | Owner(s) |
+|---|---|---|
+| L1 | `*` | `@global-owner1 @global-owner2` — verbatim from GitHub's own documentation example |
+| L4 | `/src/web/` | `@frontend-team` |
+| L5 | `/src/web/**/*.{ts,tsx}` | `@typescript-reviewers` |
+| L6 | `/src/web/**/*.test.{ts,tsx}` | `@test-reviewers` |
+| L9 | `/infrastructure/` | `@devops-team` |
+| L12 | `/.github/workflows/` | `@devops-team` |
+| L15 | `/config/` | `@devops-team @frontend-team` |
+| L18 | `*.ts *.tsx` | `@typescript-reviewers` |
+| L21 | `package.json package-lock.json` | `@dependency-reviewers` |
+| L24 | `tsconfig.json` | `@typescript-reviewers @frontend-team` |
+| L27 | `.eslintrc*` | `@code-quality-team` |
+| L30 | `README.md CONTRIBUTING.md` | `@docs-team` |
+
+Beyond the placeholders, the file has four structural defects:
+
+1. **L15 references a path that does not exist.** There is no `config/` directory in the repository (the same phantom path appears in root `README.md` L105).
+2. **L5 uses brace expansion.** `CODEOWNERS` uses gitignore-style patterns, which do not support `{ts,tsx}`; that rule matches nothing.
+3. **L18, L21 and L30 place multiple patterns on one line.** `CODEOWNERS` accepts exactly one pattern per line followed by owners, so these lines do not behave as intended.
+4. **There is no `/src/backend/` rule.** The service delivered on this branch falls through to the placeholder global owners at L1. It also owns `package-lock.json` at L21 — a file `.gitignore` L89 guarantees will never be reviewable.
+
+The net effect is that no pull request in this repository can be routed to a real, accountable reviewer, and required-reviewer branch protection cannot be enabled against this file as written.
+
+#### W21 — SECURITY.md promises a security programme the repository does not have
+
+| `SECURITY.md` | Claim | Reality in this checkout |
+|---|---|---|
+| L25, L138 | Primary contact `security@organization.com` | Placeholder domain; unroutable |
+| L26, L139 | Escalation `security-escalation@organization.com` | Placeholder domain; unroutable |
+| L21 | "Expect an initial response within 48 hours" | No rotation, no owner, no acknowledgement mechanism |
+| L27, L140–L144 | 4 h Critical / 24 h High / 48 h Medium / 72 h Low SLAs | Unbacked by any staffing or process artefact |
+| L64 | "Subresource Integrity (SRI) checks for static assets" | No SRI anywhere; `webpack.config.ts` includes no integrity plugin and `src/web/public/index.html` has no `integrity` attribute |
+| L69 | "Automated security checks in CI/CD pipeline" | The only check is a non-gating `npm audit` (`build.yml` L50–L52) |
+| L77 | "GitHub Actions security workflow" | No such workflow exists; only `build.yml`, `test.yml`, `deploy.yml` |
+| L79 | "Static code analysis" | No SAST tool configured |
+| L84, L90 | Quarterly security assessments; annual third-party penetration test | No evidence, schedule or report in the repository |
+| L99 | "WCAG 2.1 Level A accessibility standards" | No accessibility tooling or test exists |
+| L43–L47, L49–L54 | CSP / X-Frame-Options / HSTS / mandatory HTTPS / automatic HTTPS redirection | See [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were); none is effective |
+| L153 | Document ends with the literal text `Last Updated: [Current Date]` | An unfilled template placeholder shipped to `main` |
+
+A security policy that overstates controls is worse than no policy, because an adopter's risk assessment inherits the overstatement. The `[Current Date]` placeholder at L153 is also the single clearest signal that these files were generated and never reviewed.
+
+#### W22 — The container image cannot be built, and could not start if it were
+
+`docker build --target production -f infrastructure/docker/Dockerfile src/web` fails immediately:
+
+```text
+Error response from daemon: target stage "production" could not be found
+```
+
+The `Dockerfile` declares only two stages: `builder` (L2) and an unnamed final stage (L39). `docker-compose.yml` L9 requests `target: production` and L50 requests `target: development`; neither exists.
+
+Even setting the stage names aside, the build would fail three more times:
+
+1. **L24 `RUN npm ci --only=production`** requires the `package-lock.json` that `.gitignore` L89 excludes ([W1](#w1--no-lockfile-is-committed-while-all-three-workflows-require-one)). L21 copies `package*.json`, which in a clean checkout matches only `package.json`.
+2. **The same line omits devDependencies**, then **L35 runs `npm run build`**, which needs webpack, TypeScript, ts-loader and the whole toolchain. `--only=production` is also deprecated in favour of `--omit=dev`.
+3. **L35 triggers `prebuild`** ([W5](#w5--building-the-spa-rewrites-the-source-tree-including-in-ci)), so the image build runs `type-check`, `lint --fix` and `jest` — all of which currently fail ([W6](#w6--the-spa-does-not-type-check-13-errors-all-syntax-level), [W7](#w7--the-spa-does-not-lint-92-problems), [W8](#w8--both-spa-test-suites-fail-to-load-so-zero-tests-execute)) — and does so against a build context from which `.dockerignore` L62 excludes `jest.config.*`.
+
+And if an image existed, the runtime stage could not start. `Dockerfile` L51 copies `nginx.conf` to `/etc/nginx/conf.d/default.conf`, but `infrastructure/docker/nginx.conf` is a **complete** nginx configuration: L2 `worker_processes auto;`, L8 `events { … }` and L15 `http { … }`. The base image includes `conf.d/*.conf` from *inside* its own `http` block, where those directives are illegal — nginx rejects the configuration and exits. Two further blockers compound it: L69 sets `USER nginxuser` while `nginx.conf` L61 binds `listen 80`, a privileged port; and L75–L76 defines a `HEALTHCHECK` that shells out to `curl`, which `nginx:alpine` does not ship, against `/health`, which `nginx.conf` never defines.
+
+Finally, the security headers this image is supposed to provide would not be emitted even on a working nginx. `nginx.conf` L67–L73 declares CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, X-XSS-Protection and Permissions-Policy at `server` level — but L79 (`location /`) and L85 (`location ^~ /static/`) each declare their own `add_header`, and nginx discards *all* inherited `add_header` directives in any block that declares one. Every SPA route and every static asset would therefore be served with none of the seven headers. This is the concrete reason root `README.md` L185 ("CSP headers configured") and L189 ("Security headers implementation") do not hold.
+
+#### W23 — The Compose file cannot resolve its own build inputs
+
+Beyond the missing stages, `infrastructure/docker/docker-compose.yml` has five independent defects:
+
+| Line(s) | Finding |
+|---|---|
+| L1 | `version: "3.8"` — confirmed obsolete by `docker compose config`: *"the attribute `version` is obsolete, it will be ignored"* |
+| L8, L49 | `dockerfile: ../infrastructure/docker/Dockerfile` is resolved relative to the build **context** (`../../src/web`), which yields `src/infrastructure/docker/Dockerfile`. Verified: `src/infrastructure` does not exist |
+| L16 | `REACT_APP_VERSION=${APP_VERSION}` — confirmed unset by `docker compose config`: *"The \"APP_VERSION\" variable is not set. Defaulting to a blank string."* The `REACT_APP_` prefix is a Create React App convention; the custom `DefinePlugin` at `webpack.config.ts` L104–L106 injects only `process.env.NODE_ENV`, so the value would be unreachable even if set |
+| L43, L74 | `user: node` — the production image is `nginx:alpine`, which has no `node` user |
+| L64 | `command: npm run start:dev` — no `start:dev` script exists in `src/web/package.json` (its scripts are `start`, `build`, `test`, `lint`, `type-check`, `validate`, `clean`, `prebuild`) |
+
+Two further consistency problems: L34 sets `read_only: true` with `tmpfs` for `/tmp` and `/var/cache/nginx`, but `Dockerfile` L61–L62 writes `/var/run/nginx.pid`, which is on the read-only layer; and L83–L84 attaches `driver_opts: encrypted: "true"` to a `bridge` network, where that option has no effect (it is an overlay-network setting).
+
+Separately, `.dockerignore` is in the wrong place. Docker reads `.dockerignore` from the **build context root**, which Compose sets to `src/web`; the file lives at `infrastructure/docker/.dockerignore` and is therefore never applied. The proof is in the build probe's own first line — `Sending build context to Docker daemon 323.3MB` — a context that size can only mean `node_modules` was uploaded, exactly what `.dockerignore` L1 was meant to prevent.
+
+#### W24 — Terraform is not formatted to its own canonical style
+
+`terraform fmt -check -recursive` exits 3 and lists 6 of the 13 `.tf` files as non-canonical: `main.tf`, `modules/cdn/main.tf`, `modules/static-hosting/main.tf`, `modules/static-hosting/variables.tf`, `environments/dev/main.tf` and `environments/prod/main.tf`. This is minor on its own, but it confirms that no pre-commit hook or CI step has ever run `terraform fmt` against this tree — consistent with there being no Terraform job in any workflow.
+
+#### W25 — Terraform does not initialise
+
+`terraform init -backend=false` in the root module fails with **7 errors** (Terraform v1.15.8):
+
+| Count | Error | Locations |
+|---|---|---|
+| 2 | Duplicate required providers configuration | `providers.tf` L33 and `versions.tf` L11, both conflicting with `main.tf` L16 |
+| 5 | Duplicate output definition | `modules/cdn/outputs.tf` L2/L8/L14 vs `modules/cdn/main.tf` L131/L136/L141; `modules/static-hosting/outputs.tf` L18/L23 vs `modules/static-hosting/main.tf` L194/L189 |
+
+Running the same command in `environments/dev` fails with the same 5 duplicate-output errors from the shared modules, so **neither entry point can be initialised**. No `terraform plan`, `validate`, `apply` or drift check has ever succeeded against this configuration, and the CI pipeline would not have told anyone, because no workflow runs Terraform.
+
+#### W26 — Further Terraform defects behind the initialisation failure *(static inspection)*
+
+Terraform aborts at the seven errors above, so the following were identified by reading the configuration rather than from validator output. Each would surface as soon as [W25](#w25--terraform-does-not-initialise) is resolved:
+
+| Finding | Location |
+|---|---|
+| The S3 backend interpolates variables — `bucket = "${var.project_name}-terraform-state"`, `region = "${var.region}"` — which Terraform does not permit in a `backend` block | `main.tf` L7–L13 |
+| `output "project_tags"` reads `var.tags`, but the root module declares only `environment`, `region`, `project_name` and `domain_name` | `outputs.tf` L62–L64 vs `variables.tf` |
+| `module "static_hosting"` passes `project_name`, `region`, `enable_encryption`, `enable_versioning` and `enable_logging`, none of which the module declares; and does not pass `bucket_name` or `domain_name`, which it does declare | `main.tf` L42–L56 vs `modules/static-hosting/variables.tf` |
+| `module "cdn"` passes `domain_name`, `enable_waf`, `ssl_support_method`, `minimum_protocol_version`, `default_ttl`, `max_ttl`, `compress` and `tags`, none of which the module declares; and does not pass `aws_region` or `bucket_arn`, which it does | `main.tf` L59–L80 vs `modules/cdn/variables.tf` |
+| Conflicting provider source for the same local name: `hashicorp/cloudflare` in one file, `cloudflare/cloudflare` in two others | `versions.tf` L20 vs `providers.tf` L39 and `main.tf` L22 |
+| `required_version` is declared twice | `versions.tf` L8 and `main.tf` L4 |
+| `CreatedAt = timestamp()` in the default tag set guarantees a diff on every plan | `main.tf` L34 |
+| An `aws_cloudfront_response_headers_policy` is created but never attached to any distribution, so the CSP/HSTS/frame-options it defines are never served | `main.tf` L112–L141 |
+| A comment states the Cloudflare token "should be provided via environment variable `CLOUDFLARE_API_TOKEN`", while the code beneath it reads the token from three on-disk file paths and an SSM parameter wrapped in `nonsensitive()`, which strips the sensitivity marking | `providers.tf` L18–L28 |
+| The provider configuration depends on a `data` source that is itself gated on `var.environment == "prod"`, an ordering Terraform cannot guarantee | `providers.tf` L20–L28, L47–L50 |
+| `environments/dev/` and `environments/prod/` contain only `main.tf` and `terraform.tfvars` — no `variables.tf` — yet both reference `var.tags`, `var.region`, `var.project_name`, `var.environment` and `var.domain_name` | `environments/dev/main.tf` L32–L57, `environments/prod/main.tf` |
+| Three `backend "s3"` blocks specify three different state-bucket naming schemes | `main.tf` L8, `environments/dev/main.tf` L11, `environments/prod/main.tf` L15 |
+| `project_name = "hello-world-react-dev"` combined with `"${var.project_name}-${var.environment}-static"` yields `hello-world-react-dev-dev-static` | `environments/dev/terraform.tfvars` vs `environments/dev/main.tf` L51 |
+| Providers pinned to AWS `~> 4.0` and Cloudflare `~> 3.0`; both regions hardcoded to `us-east-1`; both domains are `*.example.com` placeholders | `versions.tf` L13–L22, `environments/{dev,prod}/terraform.tfvars` |
+| `modules/static-hosting` emits `cloudfront_domain_name`, `cloudfront_distribution_id`, `cloudfront_hosted_zone_id`, `cloudfront_oai_iam_arn` and `cloudfront_oai_path`, overlapping the responsibilities of `modules/cdn` | `modules/static-hosting/outputs.tf` |
+
+#### W27 — Two `.gitignore` rules do not do what the repository needs
+
+Verified with `git check-ignore -v --no-index`:
+
+1. **SPA build output is not ignored.** `.gitignore` L11 (`/build`) and L12 (`/dist`) are anchored to the repository root by their leading slash, so `src/web/build/**` and `src/web/dist/**` match no rule. Since `webpack.config.ts` L34 writes to `build`, a developer who builds locally can commit the entire bundle by accident.
+2. **`*.tfvars` matches files that are already tracked.** L51 ignores `*.tfvars`, yet `infrastructure/terraform/environments/dev/terraform.tfvars` and `.../prod/terraform.tfvars` are both tracked (the rule match is confirmed with `--no-index`). The two existing files are unaffected, but any *new* environment's `terraform.tfvars` will be silently skipped by `git add` — a quiet, easy-to-miss failure mode.
+
+L108 (`.git/`) is also inert, since git never tracks its own directory.
+
+### Documentation accuracy
+
+Documentation drift is treated as a first-class weakness here because it is what an adopter reads *first*, and because several statements would cause an adopter to skip a control they believe already exists. None of these files was corrected; every item is a report.
+
+#### W28 — Root `README.md` misdescribes the repository in seven places
+
+| Line(s) | Text | Reality |
+|---|---|---|
+| L3–L4 | Badge URLs `https://github.com/actions/workflows/build/badge.svg` and `.../test/badge.svg` | Malformed — they contain no owner or repository segment and resolve against the `github.com/actions` organisation, not this project. Both badges and both link targets are broken. |
+| L17 | "WCAG 2.1 Level A compliance" | No accessibility test, linter or audit exists. `HelloWorld.tsx` L34 uses `role="text"`, which is not a valid ARIA role. |
+| L25 | "Create React App 5.x" | The SPA is built by a hand-written `webpack.config.ts` with `ts-loader`, `HtmlWebpackPlugin`, `TerserPlugin`, `ForkTsCheckerWebpackPlugin` and `CompressionPlugin`. `react-scripts` is declared at `src/web/package.json` L46 as `"5.x"` but is never invoked by any script. |
+| L28 | "Jest 27.x" | The Jest tooling is the 29 line — `@jest/types ^29.0.0` (L29) and `jest-environment-jsdom ^29.0.0` (L44) — and `jest` itself is not declared at all ([W10](#w10--seven-tools-the-spa-depends-on-are-never-declared)). |
+| L97–L107 | A directory layout showing `src/components/`, `src/App.tsx`, `src/index.tsx`, `public/`, `build/`, `config/` and `package.json` at the repository root | The real tree is `src/web/src/**`, `src/web/public/`, `src/web/package.json`, plus `src/backend/`, `infrastructure/`, `documentation/`, `blitzy/` and `.github/`. There is no root `package.json` and no `config/` directory. `src/backend/` — the subject of this branch — does not appear in the layout at all. |
+| L121 | "Start development server at http://localhost:3000" | `webpack.config.ts` L169 sets `devServer.https: true`, so the dev server is served over HTTPS, not HTTP. |
+| L123, L124 | "Create production build in build/"; "`npm run lint` — Run ESLint code analysis" | `package.json` L16 cleans `dist`, not `build` ([W3](#w3--the-webpack-configuration-references-itself-before-it-is-assigned-and-writes-to-a-directory-the-clean-script-does-not-delete)); and the `lint` script runs `--fix`, so it rewrites files rather than analysing them ([W5](#w5--building-the-spa-rewrites-the-source-tree-including-in-ci)). |
+| L185, L187, L188, L189 | "CSP headers configured"; "Strict HTTPS enforcement"; "Regular dependency audits"; "Security headers implementation" | See [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were) and [W15](#w15--there-is-no-security-middleware-and-no-security-gate-in-the-pipeline). The repository's own `documentation/Project Guide.md` L82–L93 lists *Security Headers*, *SSL Certificate* and *Performance Monitoring* as **Pending**, contradicting these four lines from inside the same repository. |
+
+For balance, four stack claims in the same block **are** accurate: L23 React 18.2.0, L24 TypeScript 4.9.5, L27 ESLint 8.x and L29 Webpack 5.x all match the declared dependencies.
+
+#### W29 — The Technical Specification still asserts the project has no API
+
+`documentation/Technical Specifications.md` (1047 lines) contains, unchanged after an HTTP API shipped in this repository:
+
+| Section (heading line) | Line | Assertion |
+|---|---|---|
+| §3.3 API DESIGN (L302) | L304 | *"Not applicable for this implementation as it's a standalone client-side application with no API requirements."* |
+| §5.3 API DESIGN (L492) | L494 | The same sentence, duplicated. |
+| §4.4 THIRD-PARTY SERVICES (L377) | L379 | *"Application runs entirely client-side with no external service dependencies."* |
+| §7.1 AUTHENTICATION AND AUTHORIZATION (L701) | L707, L709 | *"Public Access \| Unrestricted access to static content"*; *"Role Management \| Not applicable"* |
+
+The database assertions in §3.2 (L300) and §5.2 (L490) remain accurate — there genuinely is no data store. The API assertions do not. An adopter reading this document would conclude there is no server-side attack surface to threat-model, which is no longer true.
+
+The document also duplicates whole sections against itself: §3.2 and §5.2 are both "DATABASE DESIGN", and §3.3 and §5.3 are both "API DESIGN", with identical bodies. Any future correction has to be applied in two places, and nothing enforces that.
+
+#### W30 — Two documents named `Project Guide.md` disagree, and one of them leaks its own generator prompt
+
+`documentation/Project Guide.md` (94 lines, 3362 bytes) and `blitzy/documentation/Project Guide.md` (385 lines, 23771 bytes) share a filename but are entirely different documents with different hashes. The first describes only the SPA and never mentions the backend; the second is titled *"Blitzy Project Guide — Express Backend"* and is about nothing else. Neither references the other, so there is no way for a reader to know which is authoritative or that the other exists.
+
+`documentation/Project Guide.md` has three further defects:
+
+1. **L1 leaks the generator's instruction to itself:** *"Based on the technical specification and file implementations, I'll now generate the Project Guide document following the template:"*.
+2. **L3 opens a <code>```markdown</code> fence that L94 closes**, wrapping the entire document. Rendered on GitHub, the whole guide displays as one unformatted code block.
+3. **L18–L28 bakes a point-in-time status into a versioned file** — a completion pie chart at 95 %, "Estimated engineering hours: 40", "Hours remaining: 2" — which was already stale the moment the backend was added.
+
+Its L82–L93 "HUMAN INPUTS NEEDED" table is simultaneously the most useful thing in the repository and the clearest indictment of its documentation: all eight items are still **Pending** — Environment Variables, API Keys, DNS Configuration, SSL Certificate, Performance Monitoring, Security Headers, Cache Configuration, Build Optimization.
+
+#### W31 — The pull request template is empty, and the Code of Conduct has no contact
+
+`.github/pull_request_template.md` is **0 bytes**, both on disk and in git (`git cat-file -s HEAD:.github/pull_request_template.md` returns `0`). Every pull request therefore opens with a blank description. There is no checklist for tests, no linked-issue requirement, no risk or rollback section — nothing an enterprise change-management process could hook into. This is notable because root `README.md` L180 advertises a "Pull request process" among the contribution guidelines.
+
+`CODE_OF_CONDUCT.md` L61–L73 offers two reporting channels: public GitHub Issues prefixed `[CODE OF CONDUCT]` (L65–L66), and a "Project Email" (L70) for which **no address is given** — while L75–L77 promises confidentiality and respect for reporter privacy, which the public-issue channel cannot provide. L72 promises a 24-hour response. `CONTRIBUTING.md` L153 similarly says to "Email security concerns to project maintainers" without naming an address.
+
+#### W32 — Configuration files carry deprecated or inert settings
+
+Small individually, but together they show that no configuration in the repository has been revalidated against the tool versions it targets:
+
+| File | Setting | Issue |
+|---|---|---|
+| `src/web/jest.config.ts` | L72–L78 `globals: { 'ts-jest': … }` | Deprecated configuration style in ts-jest 29 (transform options are the supported form), while L88 sets `errorOnDeprecated: true` |
+| `src/web/jest.config.ts` | L52–L56 `moduleNameMapper` | Targets `<rootDir>/__mocks__/styleMock.js` and `fileMock.js`; no `src/web/__mocks__` directory exists |
+| `src/web/.prettierrc` | `jsxBracketSameLine` | Deprecated in Prettier 2.4, removed in Prettier 3 |
+| `src/web/.prettierrc` | `vueIndentScriptAndStyle` | Inert — there is no Vue code |
+| `src/web/webpack.config.ts` | L119 `compress: { warnings: false }` | Long-deprecated Terser option |
+| `src/web/babel.config.ts` | L34–L36 `modules: 'esnext'`, `useBuiltIns: 'usage'`, `corejs: 3` | `'esnext'` is not among `@babel/preset-env`'s accepted `modules` values, and `core-js` is not a declared dependency. The file is also unreachable: webpack compiles through `ts-loader` and Jest through `ts-jest`, so Babel never runs |
+| `src/web/public/index.html` | L13, L14, L16, L17 | `X-Frame-Options`, `X-Content-Type-Options`, `Permissions-Policy` and `Strict-Transport-Security` are declared as `<meta http-equiv>`; browsers honour these only as HTTP response headers. Only L12 (CSP) and L15 (Referrer-Policy) are effective as meta tags |
+| `src/web/public/index.html` | L20, L21, L35 | `%PUBLIC_URL%` is a Create React App substitution token; the custom `HtmlWebpackPlugin` configuration never defines it, so the favicon, manifest and script `href`/`src` values would be emitted literally. L35 also hardcodes `/static/js/bundle.js` while `webpack.config.ts` L82 sets `inject: true`, so the plugin injects its own hashed script tags alongside it |
+| `src/web/public/index.html` | L24 vs L12 | `<link rel="preconnect" href="https://fonts.gstatic.com">` is contradicted by the CSP on L12, whose `default-src 'self'` would block the font origin |
+
+#### W33 — Eight dependency update branches are open and unmerged
+
+`git branch -a` shows eight Dependabot branches on the remote, none merged:
+
+| Ecosystem | Branch |
+|---|---|
+| GitHub Actions | `dependabot/github_actions/actions/checkout-4` |
+| GitHub Actions | `dependabot/github_actions/actions/setup-node-4` |
+| GitHub Actions | `dependabot/github_actions/actions/deploy-pages-4` |
+| npm (`src/web`) | `dependabot/npm_and_yarn/src/web/react-739a6347ca` |
+| npm (`src/web`) | `dependabot/npm_and_yarn/src/web/styled-components-6.1.15` |
+| npm (`src/web`) | `dependabot/npm_and_yarn/src/web/typescript-eslint-6dbe81030e` |
+| npm (`src/web`) | `dependabot/npm_and_yarn/src/web/testing-de5456b19f` |
+| npm (`src/web`) | `dependabot/npm_and_yarn/src/web/fork-ts-checker-webpack-plugin-9.0.2` |
+
+Automation is opening the right pull requests and nothing is closing them — which is the predictable consequence of [W1](#w1--no-lockfile-is-committed-while-all-three-workflows-require-one) and [W6](#w6--the-spa-does-not-type-check-13-errors-all-syntax-level) through [W8](#w8--both-spa-test-suites-fail-to-load-so-zero-tests-execute): with the pipeline red for reasons unrelated to the bump, no dependency PR can ever show a green check, so no reviewer can safely merge one. The backlog will grow monotonically until the pipeline is fixed. `.github/dependabot.yml` also sets no `open-pull-requests-limit`, no `reviewers`/`assignees`, and no `groups` on the `/src/backend` entry (L51–L65), so backend bumps will arrive one PR per package with no owner attached.
+
+## Risks
+
+These are the risks an adopting enterprise carries, derived from the [Weaknesses](#weaknesses) above. Each is rated for **Likelihood** (how probable the consequence is once the repository is adopted as-is) and **Impact** (how severe the consequence is), producing a **Severity**. Ratings use the scale *Low / Medium / High / Very High*; Severity is the higher-weighted combination and is capped at *Critical* where the consequence is immediate and blocking.
+
+No CVE identifier is asserted anywhere below. `npm audit --json` in `src/backend` reported **zero advisories across 356 packages**, and that is the only advisory data this assessment has; the dependency risks recorded here are currency and reproducibility risks, not known-vulnerability risks.
+
+### Risk register
+
+| ID | Risk | Evidence | Likelihood | Impact | Severity | Exposure / consequence |
+|---|---|---|---|---|---|---|
+| R1 | **Builds are not reproducible; the same commit can produce different artefacts** | No lockfile committed (`.gitignore` L88–L89); fresh-clone `npm ci` fails with `EUSAGE`; `prebuild` → `lint --fix` mutates source during every build (`src/web/package.json` L13, L17) | Very High | High | **Critical** | No two installs are provably identical, so a defect cannot be reliably reproduced or bisected, a release cannot be rebuilt from its tag, and there is no stable input for an SBOM or provenance attestation. Any regulated change-control or software-supply-chain attestation regime fails at this point. |
+| R2 | **A day-one adopter inherits a red pipeline on all three workflows and cannot distinguish new breakage from inherited breakage** | `npx tsc --noEmit` → 13 errors; `npx eslint … --no-fix` → 92 problems; `npx jest --ci` → 2 suites failed / 0 tests; `npm ci` fails before any of them | Very High | High | **Critical** | Quality gates stop carrying signal. Because every check is already red, no future pull request — including a security patch — can be evaluated on whether *it* broke something. In practice teams respond by disabling or ignoring the gates, which removes the last defence. |
+| R3 | **The runtime contract is three years past end of life, and no security patch exists for it** | `engines node >= 16.0.0` in both manifests; `node-version: [16.x]` in all three workflows; `node:16-alpine` in `Dockerfile` L2; Node.js 16 end of life 11 September 2023 | High | Very High | **Critical** | Any vulnerability disclosed against Node 16 will never be patched upstream. Software-composition tooling now flags end-of-life runtimes as findings in their own right, independent of any individual CVE, so this fails an audit on sight under regimes that require a supported patch path. Compounding it, the runtime actually used here is v22.23.2 — the repository is tested on a runtime it does not document, so an "upgrade" would be an untested change in the opposite direction from what the files say. |
+| R4 | **A publicly routable service would run with no operational controls and no way to detect abuse or failure** | `src/backend/server.js` (7 lines) has no logging, no health endpoint (`GET /health` → 404), no `SIGTERM` handling, no error middleware, no `helmet`, no CORS policy, no rate limiting, no request IDs, no metrics, no tracing | Medium (rises to High the moment it is deployed) | Very High | **High** | An incident produces no evidence: no request log, no error log, no metric, no trace. A trivial request flood has nothing to stop it. No probe can tell an orchestrator whether the process is healthy, so a hung process stays in rotation. Deploys sever in-flight requests. Mean-time-to-detect is effectively unbounded and mean-time-to-diagnose is unbounded after that. |
+| R5 | **Documentation asserts security controls that do not exist, so adopters will skip controls they believe are in place** | `README.md` L17, L185, L187, L188, L189; `SECURITY.md` L43–L54, L64, L69, L77, L79, L99; contradicted by `nginx.conf` L61/L79/L85, `src/web/public/index.html` L13–L17, `build.yml` L50–L52, and by `documentation/Project Guide.md` L82–L93 listing the same controls as **Pending** | High | High | **High** | This is the most insidious risk in the register, because it is *self-concealing*: a reviewer who reads "CSP headers configured" and "Strict HTTPS enforcement" reasonably closes those checklist items. The controls are absent in every path that actually serves traffic. Compliance attestations built on these statements would be materially inaccurate. |
+| R6 | **No accountable owner and no reachable security contact** | `.github/CODEOWNERS` — nine placeholder handles including `@global-owner1`; no `/src/backend/` rule; `SECURITY.md` L25/L26/L138/L139 → `security@organization.com`; `CODE_OF_CONDUCT.md` L70 "Project Email" with no address; `.github/pull_request_template.md` is 0 bytes | Very High | Medium | **High** | Required-reviewer branch protection cannot be enabled against this `CODEOWNERS` file, so no change is guaranteed a second pair of eyes. A vulnerability reporter following `SECURITY.md` reaches nobody — which converts a coordinated disclosure into either an unreported vulnerability or a public one. Change-management evidence is unproduceable: no PR template, no checklist, no attributable approver. |
+| R7 | **No deployment path exists for the service that was just built** | `Dockerfile` builds the SPA only; `docker build --target production` → *target stage "production" could not be found*; `nginx.conf` copied into `conf.d/` cannot be parsed by nginx; `deploy.yml` L6 waits on the non-existent workflow name `"Build"`; Terraform provisions no compute | High | High | **High** | There is no route from commit to running endpoint. Any deployment would be manual, undocumented and unrepeatable, which means no rollback, no audit trail and no disaster-recovery story. The `deploy.yml` failure is silent — the job simply never triggers — so a team can believe deployment is automated while nothing has ever deployed. |
+| R8 | **Infrastructure as code cannot be initialised, so the recorded topology is unverified and undeployable** | `terraform init -backend=false` → 7 errors (2 duplicate `required_providers`, 5 duplicate outputs) in both the root module and `environments/dev`; `terraform fmt -check` → 6 files non-canonical; root `main.tf` L7–L13 interpolates variables into a `backend` block, which Terraform forbids | High | Medium | **Medium–High** | The `infrastructure/terraform/` tree cannot be planned, validated or drift-checked. It therefore documents an *intent* that has never been proven to correspond to any real environment. If a real environment exists, it was created by another means and this code will not manage it; if none exists, adopting this code requires debugging it first. The invalid backend block additionally means no remote state and no state locking — concurrent applies would corrupt state. |
+| R9 | **The dependency-update backlog cannot be cleared, and grows monotonically** | 8 unmerged `dependabot/**` branches; declared versions trail current published releases by whole majors (React 18 vs 19, styled-components 5 vs 6, TypeScript 4.9 vs 7, ESLint 8 vs 10, Prettier 2 vs 3, Express 4 vs 5, Jest 29 vs 30); `npm audit` in CI is `continue-on-error: true` | High | Medium | **Medium–High** | Because no PR can go green (R2), no bump can be merged with confidence — including a future security bump. Each week's automation adds to the queue. The longer the gap grows, the larger and riskier each eventual upgrade becomes, until the majors have to be crossed all at once. The non-gating audit means a critical advisory would not stop a release. |
+| R10 | **Quality thresholds are declared but unenforceable, giving false assurance** | `src/web/jest.config.ts` L28–L35 declares 100 % global coverage thresholds that never evaluate because 0 tests run; `src/backend` declares no coverage configuration at all; `.eslintignore` excludes `src/setupTests.ts`, the file whose defect breaks every suite | Medium | Medium | **Medium** | A metrics dashboard or governance review reading the *configuration* would report a 100 % coverage policy. The measured coverage is zero for the SPA and unmeasured for the backend. Any future backend route can ship untested without any gate objecting. |
+| R11 | **The delivered SPA does not render, and no automated check would report it** | `index.tsx` L38–L42 and `App.tsx` L23–L34 contain no `ThemeProvider`, while `components/HelloWorld/styles.ts` L16/L19/L22/L37–L40 read `theme.*`; `ThemeProvider` appears only in `utils/testUtils.ts` | High | Medium | **Medium** | The user-visible product is a blank page. Because both test suites fail to load and no smoke test, visual check or end-to-end test exists in any workflow, nothing in the repository would ever report this. The same class of defect can recur unnoticed. |
+| R12 | **Build artefacts can be committed by accident, and new environment configuration can be silently dropped** | `git check-ignore -v --no-index`: `src/web/build/**` and `src/web/dist/**` match no rule (`.gitignore` L11–L12 are root-anchored); `*.tfvars` (L51) matches the two already-tracked `terraform.tfvars` files | Medium | Low–Medium | **Medium** | A developer who builds locally can commit the whole bundle, bloating history irreversibly and potentially embedding environment-specific values in source control. Conversely, a new environment's `terraform.tfvars` will be silently skipped by `git add`, so an engineer can believe configuration is committed when it is not. |
+| R13 | **Non-functional targets are contractual in tone but unmeasurable in fact** | PRD L138–L142 (load < 1.5 s, TTFB < 200 ms, FCP < 1 s, bundle < 100 KB, memory < 50 MB) and L163 (99.9 % uptime); `reportWebVitals.ts` L44–L48 logs to console only; `webpack.config.ts` L189–L190 budgets 512000 bytes — 5× the stated target — as a warning | Medium | Medium | **Medium** | If these numbers are ever quoted in a service description or contract, the organisation is committing to figures it has no instrument to measure, no baseline for, and — in the bundle-size case — an internal build budget that actively contradicts. A 99.9 % availability commitment with no monitor and no on-call rotation is unmeetable by construction. |
+| R14 | **Single-region, single-provider static topology with aged provider pins and unattached security policy** | `versions.tf` L13–L22 pins AWS `~> 4.0` and Cloudflare `~> 3.0`; both `environments/{dev,prod}/terraform.tfvars` hardcode `region = "us-east-1"`; `main.tf` L112–L141 creates a CloudFront response-headers policy that is never attached to a distribution; both domains are `*.example.com` | Medium | Medium | **Medium** | No multi-region or multi-AZ failover story for the origin, and no disaster-recovery runbook. Two-major-version-old provider pins will block adoption of current AWS resource types and will themselves become a migration project. The orphaned headers policy means the CDN-level security headers an adopter would assume are active are not attached to anything. |
+| R15 | **The build and CI pipeline modify the source they are validating** | `prebuild` → `validate` → `lint --fix` (`src/web/package.json` L13, L15, L17); triggered by `build.yml` L59/L67 and `Dockerfile` L35 | High | Low–Medium | **Medium** | CI runners and image builds rewrite the checked-out tree. On a self-hosted runner or a cached workspace this can leak modifications between runs; in a container build it invalidates layer caching non-deterministically; and it makes "the build changed nothing" impossible to assert — a check some change-control regimes require. |
+
+### How the risks compound
+
+The three Critical risks are not independent — they form a single chain, which is why fixing them in order matters more than fixing them in parallel:
+
+**R1 (no lockfile) → R2 (red pipeline) → R9 (frozen dependency backlog) → R3 (unpatchable runtime).**
+
+Because no lockfile is committed, `npm ci` fails, so every workflow is red before it evaluates anything. Because every workflow is red, no Dependabot pull request can show a green check, so none is merged. Because none is merged, the stack — including the end-of-life runtime — cannot move. Committing a lockfile is therefore not a cosmetic first step; it is the step that unblocks the other three.
+
+A second, independent chain runs through trust: **R5 (inaccurate documentation) → R6 (no accountable owner) → unverifiable compliance posture.** Inaccurate security claims plus placeholder owners mean there is no one who can be asked to confirm or deny a control, so the documentation becomes the *de facto* system of record for controls that do not exist.
+
+## Modernization Opportunities
+
+**These are recommendations only. Nothing in this section has been implemented, and no declared version anywhere in the repository was changed while producing this assessment.** `src/backend/package.json` still declares `express ^4.21.2`, `jest ^29.7.0` and `supertest ^7.2.2` with `engines node >= 16.0.0` / `npm >= 8.0.0`; `src/web/package.json` is untouched; all three workflows still pin `node-version: [16.x]`; and `infrastructure/docker/Dockerfile` still builds on `node:16-alpine`.
+
+Every "target" version below is the version currently published on the npm registry, observed with `npm view <package> version` during this assessment and reproduced in the [Evidence Appendix](#evidence-appendix). Where crossing several majors at once would be unwise, an intermediate migration milestone is named.
+
+### Runtime and platform
+
+| # | Current | Target | Ripple this carries |
+|---|---|---|---|
+| M1 | Node **16.x** — end of life 11 September 2023 — declared in both manifests, all three workflows and the `Dockerfile`; while the runtime that actually executes the repository is **v22.23.2** | An actively supported LTS line. **Node 24** is the current Active LTS (supported to 30 April 2028); **Node 22** is in Maintenance LTS (to 30 April 2027) and is the smaller step, matching what already runs here | Touches `src/backend/package.json` L6–L9, `src/web/package.json` L5–L8, `build.yml` L30, `test.yml` L22, `deploy.yml` L34, `Dockerfile` L2/L6, root `README.md` L26/L35 and `CONTRIBUTING.md` L31 — nine files that must move together or the contract fragments further. Adding an `.nvmrc` (or a `volta`/`engine-strict` pin) is what stops the documented and actual runtimes diverging again. This is the prerequisite for M2, M4 and M9, each of which has a Node floor above 16. |
+| M2 | `express ^4.21.2` (resolves to 4.22.2) | `express 5.2.1` | Express 5 requires Node 18+, so M1 must land first. Breaking changes to plan for: rejected async-handler errors now propagate to error middleware automatically; `req.query` parsing default changed; several deprecated methods removed; path-to-regexp semantics changed for wildcard routes. For a two-route service the migration is close to trivial *today* — which is precisely the argument for doing it now rather than after the service grows. |
+| M3 | Two independent packages, no root manifest, each installed and tested separately | **npm workspaces** (or pnpm/Nx/Turborepo) with a root `package.json`, a shared base `tsconfig`, a shared ESLint and Prettier configuration, and root `install` / `lint` / `test` / `build` scripts | This is the change that makes every other quality improvement apply to both packages at once. It also eliminates the duplicated `engines` blocks that can drift ([W4](#w4--the-declared-runtime-is-three-years-past-end-of-life-and-diverges-from-the-runtime-actually-used)), gives CI a single entry point (which is the root cause of [W13](#w13--the-backend-has-zero-ci-coverage)), and enables dependency hoisting. Requires reworking all three workflows' `working-directory` settings and adding a `workspaces` array. |
+| M4 | Backend is plain CommonJS JavaScript, while the rest of the repository is TypeScript | Port `src/backend/` to TypeScript, sharing the base `tsconfig` from M3 | Aligns the service with the repository's own stated conventions and gives the future request/response types somewhere to live. Needs a build step (`tsc` or `tsup`), a `dist` output, an updated `main`, and `@types/express`. Small now (7 lines); grows in cost with every route added first. |
+
+### Reproducibility and supply chain
+
+| # | Current | Target | Ripple this carries |
+|---|---|---|---|
+| M5 | `package-lock.json` and `yarn.lock` git-ignored (`.gitignore` L88–L89); `npm ci` fails in a clean checkout | Commit a `package-lock.json` per package (or one root lockfile under M3) and keep `npm ci` as the only install command in CI and in the `Dockerfile` | Requires removing L88–L89 from `.gitignore` and committing the generated lockfiles. This single change makes all three workflows' existing `cache-dependency-path` settings correct, unblocks the whole Dependabot backlog ([W33](#w33--eight-dependency-update-branches-are-open-and-unmerged)), and gives every subsequent supply-chain control (SBOM, provenance, dependency review) a stable input. It is the highest-leverage single change available in this repository. |
+| M6 | No SBOM, no artefact signing, no provenance, no dependency-review gate; `npm audit` non-gating (`build.yml` L50–L52) | CycloneDX or SPDX SBOM generated per build and published as a release artefact; `npm audit` (or `osv-scanner`) as a **gating** step with an explicit, reviewed allowlist; `actions/dependency-review-action` on pull requests; build provenance attestation | Depends on M5 — an SBOM without a lockfile is not meaningfully reproducible. Making the audit gate will initially fail builds, so it needs a triage window and a documented exception process. This is the set of controls most software-supply-chain frameworks now ask for by name. |
+| M7 | Actions pinned to `checkout@v3`, `setup-node@v3`, `deploy-pages@v2`; three update branches already open | Current majors: `checkout@v4`, `setup-node@v4`, `deploy-pages@v4`; ideally pinned by commit SHA rather than by tag | Dependabot has already prepared all three branches, so the work is review-and-merge rather than authoring. Pinning by SHA additionally protects against a tag being re-pointed — a control several frameworks require for third-party actions. |
+
+### Frontend stack currency
+
+| # | Current | Target (current published version) | Ripple this carries |
+|---|---|---|---|
+| M8 | `react ^18.2.0`, `react-dom ^18.2.0` | **19.2.8** | React 19 removes legacy string refs and `propTypes`, changes `ref` handling (forwardRef largely unnecessary), and introduces the new Actions APIs. Requires matching `@types/react` / `@types/react-dom` and `@testing-library/react` **16.3.2** (from `^13.4.0` — a three-major jump that alone changes render/act semantics). A Dependabot `react` group branch is already open. |
+| M9 | `jest ^29.7.0` (backend); Jest 29 tooling undeclared in the SPA | **30.4.2** | Jest 30 raises the Node floor to 18, so M1 must land first. It also drops some deprecated matchers and changes default `testEnvironment` behaviour. Doing this alongside M14 (declaring the missing tooling) is more efficient than doing either alone. |
+| M10 | `styled-components ^5.3.0` | **6.5.0** | v6 changes the `DefaultTheme` typing model, removes the `.withComponent` API and alters the `as` prop and `shouldForwardProp` behaviour. This intersects directly with [W9](#w9--the-spa-renders-a-blank-page-because-no-themeprovider-wraps-the-tree): the theme wiring should be corrected *before* the major bump, or the two failures will be indistinguishable. A Dependabot branch is already open. |
+| M11 | `typescript ^4.9.5` | **7.0.2** currently published; **5.x** is the sane intermediate milestone | Crossing 4.9 → 7 in one step is not advisable. Take 5.x first (stricter `satisfies`, `const` type parameters, decorator changes), and only then evaluate the next major. Note that all 13 current `tsc` errors ([W6](#w6--the-spa-does-not-type-check-13-errors-all-syntax-level)) are *syntax* errors that any TypeScript version rejects, so they must be fixed before a version change can be assessed at all. |
+| M12 | `eslint ^8.32.0` with `.eslintrc.json`; `@typescript-eslint/* ^5.48.2` | **eslint 10.8.0**; migrate to **flat config** (`eslint.config.js`), which ESLint 9 made the default; `@typescript-eslint 8.66.0` | The flat-config migration is the real work: `.eslintrc.json`'s `env`, `extends`, `plugins` and `overrides` blocks all change shape, and `.eslintignore` is replaced by an `ignores` entry inside the config. Recommend ESLint 9 + flat config as the milestone, then 10. `typescript-eslint` v8 also renames and re-scopes several rules used in `.eslintrc.json`. A Dependabot branch is already open for `typescript-eslint`. |
+| M13 | `prettier ^2.8.0`, with `jsxBracketSameLine` (removed in v3) and an `arrowParens` value that contradicts ESLint | **3.9.6** | v3 changes default `trailingComma` to `all` and makes markdown/JSX formatting changes, so expect a one-off repository-wide reformat — best landed as a single isolated commit so it never pollutes a review diff. Resolve the `arrowParens` conflict ([W7](#w7--the-spa-does-not-lint-92-problems)) and add a `format:check` script in the same change, since Prettier is currently configured but never executed. |
+| M14 | `react-scripts "5.x"` declared but never invoked; `jest`, `ts-jest`, `ts-node`, `ts-loader`, `@types/node`, `rimraf` and `identity-obj-proxy` all used but undeclared | Remove `react-scripts` entirely; declare all seven missing tools with explicit versions | Removing `react-scripts` alone drops a very large unused transitive tree from the install (and from every audit and SBOM). Declaring the missing seven is what makes the manifest a true description of the package and makes a clean-install CI run possible. Also remove the now-inert `babel.config.ts`, or wire Babel in deliberately — today it is neither. |
+| M15 | `web-vitals ^2.1.0`, `fork-ts-checker-webpack-plugin ^7.3.0`, `webpack ^5.75.0` | **web-vitals 6.0.1**, **fork-ts-checker-webpack-plugin 9.1.0**, **webpack 5.109.2** | `web-vitals` v3 replaced `getFID`/`getCLS`-style getters with `onFID`/`onCLS` and later dropped FID in favour of INP, so `reportWebVitals.ts` L44–L48 must be rewritten. `fork-ts-checker-webpack-plugin` v9 changes its options shape. `webpack` is a patch-level move within 5.x. A Dependabot branch for the ts-checker plugin is already open. |
+
+### Backend hardening and contract
+
+| # | Current | Target | Ripple this carries |
+|---|---|---|---|
+| M16 | No security middleware of any kind beyond `app.disable('x-powered-by')` | `helmet` for security headers; an **explicit allowlist** CORS policy (never `*`); `express-rate-limit` (or gateway-level rate limiting); an explicit body-size limit; explicit server timeouts | Adds real HTTP-level headers to the only component that actually serves the API — which is what would finally make root `README.md` L185 and L189 true. Each addition needs a test, and the CORS allowlist needs to be environment-driven, so it should land after M17 (structured configuration) or alongside it. |
+| M17 | No logging at all; `PORT` is the only configuration input | Structured JSON logging with `pino` (or equivalent) including request logging and redaction; schema-validated configuration (e.g. `zod`/`envalid`) so the process fails fast on invalid input rather than starting in a bad state | Logging is the prerequisite for every other operability improvement — an alert with no log to pivot to is not actionable. Requires deciding a log schema and correlation-ID header up front so it is consistent from the first line rather than retrofitted. |
+| M18 | `GET /health` returns 404, yet `Dockerfile` L75–L76 and `docker-compose.yml` L19 both health-check `/health` | Separate `/healthz` (liveness) and `/readyz` (readiness) endpoints, plus graceful `SIGTERM`/`SIGINT` shutdown that stops accepting connections, drains in flight requests and exits with a bounded timeout | This is what makes the service deployable behind any load balancer or orchestrator, and it makes the two existing health-check definitions correct instead of permanently failing. Requires retaining the `http.Server` handle that `server.js` L7 currently discards. |
+| M19 | No 404 handler, no error middleware; unknown routes return Express's default HTML page | A terminal 404 handler and a 4-argument error middleware emitting a single consistent machine-readable error shape (RFC 9457 `application/problem+json` is a good default), with stack traces never returned to clients | Also fixes the smaller content-type finding: `res.send()` with a string yields `text/html; charset=utf-8` for both endpoints today, where `text/plain` is what the contract describes. |
+| M20 | No API contract of any kind | An **OpenAPI 3.1** document committed alongside the service, with schema validation in tests and a contract check in CI; a `/v1` (or header-based) version scheme before a second consumer exists | Enables generated clients, gateway import, consumer-driven contract testing and machine-readable change detection. Cheapest to introduce now, while the contract is two strings, and progressively more expensive with every route added. |
+| M21 | Metrics, tracing and alerting all absent | A `/metrics` endpoint (Prometheus exposition) with RED metrics per route; OpenTelemetry tracing with context propagation; SLOs derived from the PRD targets, with alerts wired to them | This is what converts the PRD's 99.9 % uptime and sub-200 ms TTFB targets ([W16](#w16--performance-and-availability-are-asserted-but-never-measured)) from aspirations into measured objectives. Requires a collector/backend decision, which is an organisational choice rather than a code one. |
+
+### Delivery pipeline and infrastructure
+
+| # | Current | Target | Ripple this carries |
+|---|---|---|---|
+| M22 | Backend has no image; `Dockerfile` builds the SPA only; `docker build --target production` fails | A dedicated multi-stage `Dockerfile` for `src/backend/` on a supported Node LTS base, pinned by digest, running as a non-root user, with `npm ci --omit=dev`, a `HEALTHCHECK` pointing at the real `/healthz` from M18, and `dumb-init`/`tini` for correct signal handling | Requires a runtime deployment target to exist — ECS/Fargate, App Runner, Kubernetes or an equivalent — which is a Terraform addition, not a Dockerfile one. Also the moment to fix `docker-compose.yml`'s non-existent `target:` values, its unresolvable `dockerfile:` path, its `user: node` on an nginx image and its `npm run start:dev` command, and to move `.dockerignore` into the actual build context. |
+| M23 | `nginx.conf` is a full server config copied into `conf.d/default.conf`, where it cannot be parsed; `add_header` in the `location` blocks discards all inherited security headers; `listen 80` under a non-root user | Reduce the file to a `server { … }` block appropriate for `conf.d/`; re-declare every security header inside each `location` that declares any (or adopt the `headers-more` module); listen on an unprivileged port and let the platform map 80/443; add a real `/health` location; add HTTP-to-HTTPS redirection and TLS termination | This is what would make root `README.md` L185 ("CSP headers configured") and L187 ("Strict HTTPS enforcement") accurate for the first time, and it is a prerequisite for the container ever starting. |
+| M24 | No backend job in any workflow; all three scope to `src/web`; `deploy.yml` waits on a workflow name that does not exist | A matrix or per-package job set covering **both** packages — install, lint, type-check, test with coverage, audit, build — with enforced coverage thresholds; correct the `workflow_run` name to `Build and Test` (or trigger deployment directly); add `actions/configure-pages` and `actions/upload-pages-artifact` before `deploy-pages`; add `concurrency` and `timeout-minutes` to every workflow; deduplicate `test.yml` against `build.yml` | Easiest and most valuable after M3 (workspaces), because a single root command replaces the per-directory duplication that caused the omission. Requires replacing the mutating `lint --fix` with a check-only lint step so CI stops rewriting the tree. |
+| M25 | No SAST, no secret scanning, no IaC scanning, no accessibility or performance gate | CodeQL (or Semgrep) on pull requests; secret scanning with push protection plus `gitleaks` in CI; `tfsec`/`checkov` and `terraform validate` + `fmt -check` on the IaC tree; `hadolint` on the Dockerfiles; `axe`/`pa11y` for the accessibility claim; Lighthouse CI with a bundle-size budget aligned to the PRD's 100 KB target | Each of these turns a documentation claim into an enforced gate — which is the systematic answer to [R5](#risk-register). The Terraform checks are the ones that would have caught [W25](#w25--terraform-does-not-initialise) on the commit that introduced it. |
+| M26 | Long-lived cloud credentials implied; AWS provider `~> 4.0`, Cloudflare `~> 3.0`; Cloudflare token read from on-disk files and an SSM parameter wrapped in `nonsensitive()`; root backend block is invalid so there is no working remote state | **OIDC federation** (`aws-actions/configure-aws-credentials` with `id-token: write`) so no static keys exist anywhere; current provider majors; secrets from a managed store (AWS Secrets Manager / SSM with `sensitive` preserved), never from files or `nonsensitive()`; a **valid** S3 backend with literal values plus DynamoDB (or S3 native) state locking | Removes standing credentials entirely — usually the single largest cloud-security improvement available to a repository like this. The provider major upgrades carry their own resource-schema migrations and should be sequenced after the configuration validates ([W25](#w25--terraform-does-not-initialise)). Correcting the backend block is what makes concurrent applies safe. |
+| M27 | Documentation asserts controls that do not exist; two same-named Project Guides; a Technical Specification that says the project has no API | Bring every claim back to what the code does, and add a docs-accuracy check to CI (dead-link checking, and a required documentation section in the PR template) so drift is caught mechanically rather than by review | Nothing in this assessment corrects these files — that is deliberate, since the request was to analyse. But the durable fix is a *gate*, not a one-off edit: the drift documented in [W28](#w28--root-readmemd-misdescribes-the-repository-in-seven-places) through [W31](#w31--the-pull-request-template-is-empty-and-the-code-of-conduct-has-no-contact) accumulated because nothing ever checked. |
+
+## Recommended Next Steps
+
+> **These are recommendations. This pull request implements none of them.** It adds this assessment document and one pointer section in the root `README.md`, and changes nothing else. No code, dependency, version, workflow, manifest, configuration file or infrastructure definition was modified, and no finding in this document was remediated. Verifying that is straightforward: `git diff` against `src/backend`, `src/web`, `.github`, `infrastructure`, `.gitignore`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and the pre-existing `documentation/*.md` files is empty.
+
+The roadmap below is ordered by dependency, not by preference. **P0 makes the repository truthful and reproducible; P1 makes it operable and secure; P2 modernises and scales it.** Attempting P1 before P0 wastes effort, because there is no green pipeline to prove a P1 change worked.
+
+**Effort key:** **S** ≈ up to 1 day · **M** ≈ 2–5 days · **L** ≈ 1–3 weeks · **XL** ≈ more than 3 weeks, for one engineer at the stated role.
+
+### P0 — Make it green and reproducible (0–30 days)
+
+*Exit criterion: a clean clone installs deterministically, all three workflows pass, and no committed document asserts a control the code does not implement.*
+
+| # | Step | Owning role | Effort | Resolves |
+|---|---|---|---|---|
+| P0-1 | Commit a `package-lock.json` for each package and remove L88–L89 from `.gitignore`. Confirm `npm ci` succeeds from a clean clone in both packages. | Build / Platform Engineer | **S** | [W1](#w1--no-lockfile-is-committed-while-all-three-workflows-require-one), [R1](#risk-register), [M5](#reproducibility-and-supply-chain) — unblocks everything below |
+| P0-2 | Fix the SPA's five unparseable files: remove `as const` from the type aliases in `config/constants.ts`; rename `utils/testUtils.ts` to `.tsx`; convert the committed prose and markdown fences in `components/HelloWorld/index.ts`, `components/index.ts` and `utils/errorBoundary.tsx` into comments or delete them. Target: `npx tsc --noEmit` exits 0. | Frontend Engineer | **M** | [W6](#w6--the-spa-does-not-type-check-13-errors-all-syntax-level), [R2](#risk-register) |
+| P0-3 | Correct `src/web/src/setupTests.ts` L8 to `'./utils/testUtils'`; create the missing `src/web/__mocks__/styleMock.js` and `fileMock.js`; declare `identity-obj-proxy`. Target: both suites load and their assertions run. | Frontend Engineer | **S** | [W8](#w8--both-spa-test-suites-fail-to-load-so-zero-tests-execute), [R2](#risk-register) |
+| P0-4 | Declare the seven undeclared tools (`jest`, `ts-jest`, `ts-node`, `ts-loader`, `@types/node`, `rimraf`, `identity-obj-proxy`) with explicit versions, and remove the unused `react-scripts`. | Frontend Engineer | **S** | [W10](#w10--seven-tools-the-spa-depends-on-are-never-declared), [M14](#frontend-stack-currency) |
+| P0-5 | Split linting into `lint` (check-only) and `lint:fix`; point `validate` and `prebuild` at the check-only variant so no build ever rewrites source. | Frontend Engineer | **S** | [W5](#w5--building-the-spa-rewrites-the-source-tree-including-in-ci), [R15](#risk-register) |
+| P0-6 | Clear the 92 lint problems; resolve the `arrowParens` conflict between `.prettierrc` and `.eslintrc.json` L90; remove `jsxBracketSameLine` and `vueIndentScriptAndStyle`; add a `format:check` script. Target: `eslint` exits 0. | Frontend Engineer | **M** | [W7](#w7--the-spa-does-not-lint-92-problems), [R2](#risk-register) |
+| P0-7 | Remove `--optimize-minimize` from the `build` script; fix the `config.plugins` self-reference at `webpack.config.ts` L180 (hoist the plugin array); make the factory read `mode` from webpack's `argv` rather than `env`; align `clean` with the real output directory. Target: `npm run build` produces a bundle. | Frontend Engineer | **M** | [W2](#w2--the-spa-build-script-passes-a-flag-webpack-5-removed), [W3](#w3--the-webpack-configuration-references-itself-before-it-is-assigned-and-writes-to-a-directory-the-clean-script-does-not-delete), [R1](#risk-register) |
+| P0-8 | Wrap the application in a styled-components `ThemeProvider` supplying `defaultTheme`, and add one smoke test asserting the message renders. Target: the page is no longer blank. | Frontend Engineer | **S** | [W9](#w9--the-spa-renders-a-blank-page-because-no-themeprovider-wraps-the-tree), [R11](#risk-register) |
+| P0-9 | Add a backend CI job (install, test, audit) and correct `deploy.yml` L6 to `workflows: ["Build and Test"]`. Add `concurrency` and `timeout-minutes` to `test.yml` and `deploy.yml`; deduplicate `test.yml` against `build.yml`. | DevOps Engineer | **M** | [W12](#w12--the-deployment-workflow-can-never-trigger-and-could-not-deploy-if-it-did), [W13](#w13--the-backend-has-zero-ci-coverage), [R7](#risk-register) |
+| P0-10 | Merge the three GitHub Actions update branches (`checkout-4`, `setup-node-4`, `deploy-pages-4`), then work through the five npm branches now that checks can go green. | DevOps Engineer | **S** | [W33](#w33--eight-dependency-update-branches-are-open-and-unmerged), [R9](#risk-register) |
+| P0-11 | Correct every inaccurate documentation claim: `README.md` L3–L4 badges, L17, L25, L28, L97–L107, L121, L123–L124, L185–L189; `SECURITY.md` L64/L69/L77/L79/L99 and the `[Current Date]` placeholder at L153; `documentation/Technical Specifications.md` L304/L379/L494/L707–L709; the stray `markdown` fence and leaked generator prompt in `documentation/Project Guide.md`. Reconcile or cross-reference the two `Project Guide.md` files. | Technical Writer + Engineering Lead | **M** | [W28](#w28--root-readmemd-misdescribes-the-repository-in-seven-places)–[W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt), [R5](#risk-register) |
+| P0-12 | Replace every placeholder owner in `.github/CODEOWNERS` with a real team; add a `/src/backend/` rule; fix the invalid multi-pattern lines (L18, L21, L30) and the brace-expansion pattern (L5); remove the phantom `/config/` rule (L15); then enable required-review branch protection. | Engineering Manager | **S** | [W20](#w20--codeowners-is-entirely-placeholders-and-does-not-cover-the-backend), [R6](#risk-register) |
+| P0-13 | Replace the placeholder security contacts in `SECURITY.md` with a monitored channel and enable GitHub private vulnerability reporting; add a reporting address to `CODE_OF_CONDUCT.md` L70; author the empty `.github/pull_request_template.md` with a tests / risk / rollback / docs checklist. | Security Lead + Engineering Manager | **S** | [W21](#w21--securitymd-promises-a-security-programme-the-repository-does-not-have), [W31](#w31--the-pull-request-template-is-empty-and-the-code-of-conduct-has-no-contact), [R6](#risk-register) |
+| P0-14 | Fix the two `.gitignore` rules: unanchor `build`/`dist` (or scope them to `src/web/`), and reconcile `*.tfvars` with the two files already tracked. | Build / Platform Engineer | **S** | [W27](#w27--two-gitignore-rules-do-not-do-what-the-repository-needs), [R12](#risk-register) |
+
+### P1 — Make it operable and secure (30–90 days)
+
+*Exit criterion: the service can be deployed by pipeline, observed in production, and defended; security controls are enforced by gates rather than asserted in prose.*
+
+| # | Step | Owning role | Effort | Resolves |
+|---|---|---|---|---|
+| P1-1 | Upgrade to an actively supported Node LTS across all nine places the version is pinned; add an `.nvmrc` and a CI matrix entry so the documented and actual runtimes cannot diverge again. | Platform Engineer | **M** | [W4](#w4--the-declared-runtime-is-three-years-past-end-of-life-and-diverges-from-the-runtime-actually-used), [R3](#risk-register), [M1](#runtime-and-platform) |
+| P1-2 | Add structured logging (`pino` or equivalent) with request logging, redaction and a correlation-ID header; add schema-validated configuration so the process fails fast on bad input. | Backend Engineer | **M** | [W14](#w14--the-express-service-has-none-of-the-operational-controls-an-enterprise-requires), [R4](#risk-register), [M17](#backend-hardening-and-contract) |
+| P1-3 | Add `/healthz` and `/readyz`, retain the `http.Server` handle, and implement graceful `SIGTERM`/`SIGINT` shutdown with a bounded drain. | Backend Engineer | **S** | [W14](#w14--the-express-service-has-none-of-the-operational-controls-an-enterprise-requires), [R4](#risk-register), [M18](#backend-hardening-and-contract) |
+| P1-4 | Add `helmet`, an allowlist CORS policy, rate limiting, an explicit body-size limit and explicit server timeouts. | Backend Engineer + Security Lead | **M** | [W15](#w15--there-is-no-security-middleware-and-no-security-gate-in-the-pipeline), [R4](#risk-register), [M16](#backend-hardening-and-contract) |
+| P1-5 | Add a terminal 404 handler and a 4-argument error middleware returning one consistent machine-readable error shape with no stack traces; set the correct `Content-Type` for the plain-text routes. | Backend Engineer | **S** | [W14](#w14--the-express-service-has-none-of-the-operational-controls-an-enterprise-requires), [M19](#backend-hardening-and-contract) |
+| P1-6 | Make `npm audit` gating in CI with a reviewed allowlist; add `actions/dependency-review-action`; generate and publish a CycloneDX or SPDX SBOM per build; add build provenance attestation. | DevOps + Security Lead | **M** | [W15](#w15--there-is-no-security-middleware-and-no-security-gate-in-the-pipeline), [R1](#risk-register), [R9](#risk-register), [M6](#reproducibility-and-supply-chain) |
+| P1-7 | Add CodeQL (or Semgrep), secret scanning with push protection plus `gitleaks` in CI, and `hadolint` on the Dockerfiles. | Security Lead | **M** | [W15](#w15--there-is-no-security-middleware-and-no-security-gate-in-the-pipeline), [R5](#risk-register), [M25](#delivery-pipeline-and-infrastructure) |
+| P1-8 | Author a backend `Dockerfile` (supported LTS base pinned by digest, non-root user, `npm ci --omit=dev`, `HEALTHCHECK` against `/healthz`, correct signal handling) and provision a runtime target in Terraform. | Platform Engineer | **L** | [W17](#w17--the-backend-has-no-container-image-and-no-deployment-path), [R7](#risk-register), [M22](#delivery-pipeline-and-infrastructure) |
+| P1-9 | Repair the SPA container path: reduce `nginx.conf` to a `conf.d`-appropriate `server` block, re-declare the security headers inside each `location` that declares any, add a real `/health` location, listen unprivileged, and add TLS termination with HTTP-to-HTTPS redirection. | Platform Engineer | **M** | [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were), [R5](#risk-register), [R7](#risk-register), [M23](#delivery-pipeline-and-infrastructure) |
+| P1-10 | Fix `docker-compose.yml`: name the Dockerfile stages it references, correct the `dockerfile:` path, remove the obsolete `version` key and the nonexistent `start:dev` command and `user: node`, and move `.dockerignore` into the real build context. | Platform Engineer | **S** | [W23](#w23--the-compose-file-cannot-resolve-its-own-build-inputs), [R7](#risk-register) |
+| P1-11 | Make Terraform initialise: remove the duplicate `required_providers` and duplicate outputs, replace the interpolated `backend` values with literals, reconcile the provider sources, add the missing `variables.tf` to both environments, align each module's arguments with its declared variables, remove `timestamp()` from the default tags, and attach the CloudFront response-headers policy. Then add `terraform fmt -check`, `validate` and `tfsec`/`checkov` to CI. | Cloud / Platform Engineer | **L** | [W24](#w24--terraform-is-not-formatted-to-its-own-canonical-style)–[W26](#w26--further-terraform-defects-behind-the-initialisation-failure-static-inspection), [R8](#risk-register), [M26](#delivery-pipeline-and-infrastructure) |
+| P1-12 | Replace any long-lived cloud credentials with OIDC federation; move the Cloudflare token to a managed secret store, preserving its `sensitive` marking; enable remote state with locking. | Cloud / Security Engineer | **M** | [W26](#w26--further-terraform-defects-behind-the-initialisation-failure-static-inspection), [R8](#risk-register), [M26](#delivery-pipeline-and-infrastructure) |
+| P1-13 | Set realistic, enforced coverage thresholds for both packages (replacing the SPA's unattainable 100 %), and add `--coverage` to the backend test script. | Engineering Lead | **S** | [W11](#w11--coverage-is-either-unenforceable-or-absent), [R10](#risk-register) |
+| P1-14 | Commit an OpenAPI 3.1 document for the service, validate responses against it in tests, and add a contract check to CI. Adopt a version scheme before a second consumer exists. | Backend Engineer + API Architect | **M** | [W18](#w18--there-is-no-api-contract), [M20](#backend-hardening-and-contract) |
+
+### P2 — Modernise and scale (90+ days)
+
+*Exit criterion: the stack is on supported majors, one command validates the whole repository, and every documented target is measured.*
+
+| # | Step | Owning role | Effort | Resolves |
+|---|---|---|---|---|
+| P2-1 | Adopt npm workspaces (or an equivalent monorepo tool) with a root manifest, shared base `tsconfig`, shared ESLint/Prettier configuration, and root `install`/`lint`/`test`/`build` scripts; rework the workflows onto the root commands. | Platform / Build Engineer | **L** | [W19](#w19--there-is-no-root-manifest-and-no-workspace-tooling), [M3](#runtime-and-platform) |
+| P2-2 | Migrate the SPA stack: React 18 → 19 (with matching `@types/*` and `@testing-library/react`), styled-components 5 → 6 (after P0-8), TypeScript 4.9 → 5.x, ESLint 8 → 9 flat config → 10, Prettier 2 → 3, and `web-vitals` 2 → current (rewriting `reportWebVitals.ts` for the `on*` API). One major per pull request. | Frontend Engineer | **XL** | [W33](#w33--eight-dependency-update-branches-are-open-and-unmerged), [R9](#risk-register), [M8](#frontend-stack-currency)–[M15](#frontend-stack-currency) |
+| P2-3 | Migrate the service to Express 5 and Jest 30 (both require the Node upgrade from P1-1). Do it while the service is still two routes. | Backend Engineer | **M** | [R3](#risk-register), [R9](#risk-register), [M2](#runtime-and-platform), [M9](#frontend-stack-currency) |
+| P2-4 | Port `src/backend/` to TypeScript on the shared base configuration from P2-1, with a build step and `@types/express`. | Backend Engineer | **M** | [W19](#w19--there-is-no-root-manifest-and-no-workspace-tooling), [M4](#runtime-and-platform) |
+| P2-5 | Add a `/metrics` endpoint with RED metrics, OpenTelemetry tracing with context propagation, and SLOs derived from the PRD's targets, with alerts wired to them. Ship web-vitals to a real RUM endpoint instead of `console.log`. | SRE / Observability Engineer | **L** | [W16](#w16--performance-and-availability-are-asserted-but-never-measured), [R13](#risk-register), [M21](#backend-hardening-and-contract) |
+| P2-6 | Add Lighthouse CI with a bundle-size budget reconciled against the PRD's 100 KB target (currently contradicted by the 512 KB webpack budget), and `axe`/`pa11y` accessibility checks to substantiate or retire the WCAG 2.1 Level A claim. Fix the invalid `role="text"` at `HelloWorld.tsx` L34. | Frontend + QA Engineer | **M** | [W16](#w16--performance-and-availability-are-asserted-but-never-measured), [W28](#w28--root-readmemd-misdescribes-the-repository-in-seven-places), [R13](#risk-register), [M25](#delivery-pipeline-and-infrastructure) |
+| P2-7 | Upgrade the Terraform providers off AWS `~> 4.0` and Cloudflare `~> 3.0`; introduce multi-AZ or multi-region resilience and a documented disaster-recovery runbook with a tested restore. | Cloud Engineer | **L** | [W26](#w26--further-terraform-defects-behind-the-initialisation-failure-static-inspection), [R14](#risk-register), [M26](#delivery-pipeline-and-infrastructure) |
+| P2-8 | Add a documentation-accuracy gate: dead-link checking in CI, a required documentation section in the PR template, and a periodic review that re-verifies every claim in `README.md` and `SECURITY.md` against the code. | Technical Writer + Engineering Lead | **M** | [W28](#w28--root-readmemd-misdescribes-the-repository-in-seven-places)–[W31](#w31--the-pull-request-template-is-empty-and-the-code-of-conduct-has-no-contact), [R5](#risk-register), [M27](#delivery-pipeline-and-infrastructure) |
+| P2-9 | Establish a release process: semantic versioning off `1.0.0`, a generated changelog, tagged releases with attached SBOM and provenance, and a documented rollback procedure. | Engineering Lead | **M** | [W19](#w19--there-is-no-root-manifest-and-no-workspace-tooling), [R1](#risk-register), [R7](#risk-register) |
+
+### Sequencing summary
+
+| Wave | Theme | Gate to pass before proceeding |
+|---|---|---|
+| **P0** | Truth and reproducibility | A clean clone installs with `npm ci`; `tsc`, `eslint`, both test suites and the production build all pass; all three workflows are green; every documented claim matches the code; every `CODEOWNERS` owner and security contact is real. |
+| **P1** | Operability and security | The service logs, exposes liveness and readiness, shuts down gracefully, sets security headers, rate-limits and validates its configuration; it builds into a container and deploys by pipeline; Terraform initialises, validates and holds remote state; SAST, secret scanning, a gating audit and an SBOM all run on every pull request. |
+| **P2** | Modernisation and scale | Every dependency is on a supported major; one root command validates the repository; every PRD target is measured with an alert attached; releases are versioned, attested and reversible. |
+
+A final framing point for whoever picks this up. The repository was built to satisfy the brief in `documentation/Input Prompt.md` — *"please make it simple, do as little as possible"* — and by that measure it succeeded. Almost every finding in this document exists because enterprise-grade scaffolding (CI, IaC, security policy, governance files, a specification, a PRD) was layered on top of a deliberately minimal demo without anything ever executing that scaffolding end to end. The correct reading is therefore not that the work was done badly, but that **the repository is a demo wearing enterprise clothing**. P0 is the wave that makes the clothing fit; nothing after it is safe or verifiable until it does.
+
+## Evidence Appendix
+
+Output below is real, trimmed to the relevant lines, and reproduced verbatim apart from three normalisations: absolute local paths are replaced with repository-relative ones, ANSI colour codes and Terraform's box-drawing characters are stripped, and long dependency lists are elided with `…`. No environment-variable value and no secret value appears anywhere in this document.
+
+### E1 — Repository state at the assessed commit
+
+```console
+$ git rev-parse --abbrev-ref HEAD
+blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc
+
+$ git rev-parse HEAD
+dcc5b7f4adc7791b09c527284d0d849c993e5a03
+
+$ git ls-files | Measure-Object -Line
+Lines: 80
+
+$ git diff main...HEAD --stat
+ .github/dependabot.yml                |  19 +-
+ README.md                             |  30 +++
+ blitzy/documentation/Project Guide.md | 385 +++++++++++++++++++++++++++++++++++
+ src/backend/.env.example              |   1 +
+ src/backend/README.md                 |  42 ++++
+ src/backend/package.json              |  21 ++
+ src/backend/server.js                 |   7 +
+ src/backend/server.test.js            |  11 +
+ 8 files changed, 515 insertions(+), 1 deletion(-)
+```
+
+### E2 — Runtime actually in use, versus the runtime the repository pins
+
+```console
+$ node --version
+v22.23.2
+
+$ npm --version
+10.9.8
+```
+
+Compare with `engines.node` (`>= 16.0.0`) in both manifests, `node-version: [16.x]` in all three workflows, and `FROM node:16-alpine` at `infrastructure/docker/Dockerfile` L2. See [W4](#w4--the-declared-runtime-is-three-years-past-end-of-life-and-diverges-from-the-runtime-actually-used).
+
+### E3 — Backend test suite
+
+```console
+$ cd src/backend && npm test
+
+> hello-world-express-backend@1.0.0 test
+> jest
+
+PASS ./server.test.js
+  backend endpoints
+    √ GET / returns Hello world (28 ms)
+    √ GET /good-evening returns Good evening (5 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        0.773 s, estimated 1 s
+```
+
+Exit code 0.
+
+### E4 — Backend advisory posture
+
+```console
+$ cd src/backend && npm audit --json     # summary fields extracted
+
+metadata.vulnerabilities: info 0, low 0, moderate 0, high 0, critical 0, total 0
+metadata.dependencies:    prod 69, dev 288, optional 1, peer 0, total 356
+vulnerabilities:          (empty)
+```
+
+Zero advisories. `express ^4.21.2` resolved to `4.22.2`. **No CVE identifier is asserted anywhere in this document** — this output is the entirety of the advisory evidence available.
+
+### E5 — Endpoint behaviour, headers, and the `PORT` override
+
+Server started as an isolated process; only that process was stopped afterwards.
+
+```console
+GET http://localhost:3001/               -> 200  body "Hello world"   (11 bytes)
+GET http://localhost:3001/good-evening   -> 200  body "Good evening"  (12 bytes)
+     response Content-Type : text/html; charset=utf-8
+     response X-Powered-By : (absent)
+
+GET http://localhost:3001/health         -> 404  "Cannot GET /health"   (Express default HTML page)
+GET http://localhost:3001/does-not-exist -> 404  (Express default HTML page)
+
+# with PORT overridden to 4000
+GET http://localhost:4000/               -> 200  body "Hello world"
+GET http://localhost:4000/good-evening   -> 200  body "Good evening"
+```
+
+Supports [S2](#s2--x-powered-by-is-explicitly-disabled), [S5](#s5--both-endpoints-behave-exactly-as-documented), [S6](#s6--port-is-configurable-and-the-contract-is-documented) and [W14](#w14--the-express-service-has-none-of-the-operational-controls-an-enterprise-requires).
+
+### E6 — SPA type check: 13 errors
+
+```console
+$ cd src/web && npx tsc --noEmit
+src/components/HelloWorld/index.ts(39,2): error TS1443: Module declaration names may only use ' or " quoted strings.
+src/components/index.ts(36,2): error TS1443: Module declaration names may only use ' or " quoted strings.
+src/config/constants.ts(20,3): error TS1005: ';' expected.
+src/config/constants.ts(29,3): error TS1005: ';' expected.
+src/config/constants.ts(41,3): error TS1005: ';' expected.
+src/utils/errorBoundary.tsx(158,2): error TS1443: Module declaration names may only use ' or " quoted strings.
+src/utils/errorBoundary.tsx(162,1): error TS1128: Declaration or statement expected.
+src/utils/testUtils.ts(40,20): error TS1005: '>' expected.
+src/utils/testUtils.ts(40,25): error TS1005: ')' expected.
+src/utils/testUtils.ts(42,7): error TS1161: Unterminated regular expression literal.
+src/utils/testUtils.ts(43,3): error TS1128: Declaration or statement expected.
+src/utils/testUtils.ts(44,1): error TS1128: Declaration or statement expected.
+src/utils/testUtils.ts(77,22): error TS1161: Unterminated regular expression literal.
+```
+
+Exit code 2. Every error is syntax-level; none is a type mismatch.
+
+### E7 — SPA lint: 92 problems
+
+```console
+$ cd src/web && npx eslint src --ext .ts,.tsx --no-fix
+…
+✖ 92 problems (88 errors, 4 warnings)
+```
+
+Exit code 1; 20 files reported. Rule distribution is tabulated in [W7](#w7--the-spa-does-not-lint-92-problems). The `--no-fix` flag was used deliberately: the repository's own `lint` script (`src/web/package.json` L13) runs `--fix` and rewrites source files.
+
+### E8 — SPA test suites: 0 tests execute
+
+```console
+$ cd src/web && npx jest --watchAll=false --ci
+FAIL src/App.test.tsx
+  ● Test suite failed to run
+    Cannot find module '../utils/testUtils' from 'src/setupTests.ts'
+FAIL src/components/HelloWorld/HelloWorld.test.tsx
+  ● Test suite failed to run
+    Cannot find module '../utils/testUtils' from 'src/setupTests.ts'
+
+Test Suites: 2 failed, 2 total
+Tests:       0 total
+Snapshots:   0 total
+```
+
+Exit code 1.
+
+### E9 — Clean-install reproducibility
+
+In this working tree, `npm ci --dry-run` **succeeds**, because a prior `npm install` left a git-ignored `package-lock.json` on disk:
+
+```console
+$ Test-Path src/web/package-lock.json        -> True
+$ git ls-files --error-unmatch src/web/package-lock.json
+                                             -> not tracked (matches .gitignore L89)
+```
+
+Repeating the command in a scratch directory containing **only** the tracked manifest — which is exactly what a fresh clone yields — reproduces the CI failure:
+
+```console
+$ git show HEAD:src/web/package.json > <scratch>/package.json
+$ cd <scratch> && npm ci --dry-run
+npm error code EUSAGE
+npm error
+npm error The `npm ci` command can only install with an existing package-lock.json or
+npm error npm-shrinkwrap.json with lockfileVersion >= 1. Run an install with npm@5 or
+npm error later to generate a package-lock.json file, then try again.
+```
+
+Exit code 1. See [W1](#w1--no-lockfile-is-committed-while-all-three-workflows-require-one).
+
+### E10 — `.gitignore` rule verification
+
+```console
+$ git check-ignore -v src/web/build/main.js
+  (no match)
+$ git check-ignore -v src/web/dist/main.js
+  (no match)
+$ git check-ignore -v build/x
+  .gitignore:11:/build            build/x
+$ git check-ignore -v dist/x
+  .gitignore:12:/dist             dist/x
+$ git check-ignore -v src/web/package-lock.json
+  .gitignore:89:package-lock.json src/web/package-lock.json
+$ git check-ignore -v --no-index infrastructure/terraform/environments/dev/terraform.tfvars
+  .gitignore:51:*.tfvars          infrastructure/terraform/environments/dev/terraform.tfvars
+```
+
+The first two show that `src/web/build/**` and `src/web/dist/**` match no rule; the last shows `*.tfvars` matching a file that is nevertheless tracked. See [W27](#w27--two-gitignore-rules-do-not-do-what-the-repository-needs).
+
+### E11 — Secret hygiene
+
+```console
+$ git ls-files | Select-String '\.env$|package-lock|yarn\.lock'
+  (no matches)
+
+$ git ls-files | Select-String '\.env'
+  src/backend/.env.example
+```
+
+No `.env`, lockfile, key, certificate or credential is tracked. Supports [S13](#s13--no-secret-credential-or-data-store-exists-anywhere).
+
+### E12 — Docker: stage resolution and build context
+
+```console
+$ docker build --target production -f infrastructure/docker/Dockerfile src/web
+Sending build context to Docker daemon  323.3MB
+
+Error response from daemon: target stage "production" could not be found
+```
+
+Exit code 1. Two facts follow. First, the only stages the `Dockerfile` declares are:
+
+```console
+$ Select-String -Path infrastructure/docker/Dockerfile -Pattern '^FROM '
+  L2:  FROM node:16-alpine AS builder
+  L39: FROM nginx:alpine
+```
+
+Second, the 323.3 MB build context proves `infrastructure/docker/.dockerignore` is never applied — Docker reads `.dockerignore` from the build-context root, which Compose sets to `src/web`, so `node_modules` was uploaded. See [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were) and [W23](#w23--the-compose-file-cannot-resolve-its-own-build-inputs).
+
+### E13 — Docker Compose validation
+
+```console
+$ docker compose -f infrastructure/docker/docker-compose.yml config
+warning  The "APP_VERSION" variable is not set. Defaulting to a blank string.
+warning  docker-compose.yml: the attribute `version` is obsolete, it will be ignored,
+         please remove it to avoid potential confusion
+…
+services:
+  dev:
+    build:
+      context: <repo>/src/web
+      dockerfile: ../infrastructure/docker/Dockerfile
+      target: development
+    command: [npm, run, start:dev]
+```
+
+```console
+$ Test-Path src/infrastructure
+False
+```
+
+The `dockerfile:` path is resolved relative to the context (`src/web`), so it points at `src/infrastructure/docker/Dockerfile`, which does not exist.
+
+### E14 — Terraform initialisation
+
+Terraform was not present on the assessment host; **Terraform v1.15.8** was installed for this check and run against a **copy** of the tree, leaving `infrastructure/` untouched (`git diff -- infrastructure` is empty).
+
+```console
+$ terraform init -backend=false -input=false        # root module
+Initializing modules...
+- static_hosting in modules/static-hosting
+- cdn in modules/cdn
+
+Error: Duplicate required providers configuration
+  on providers.tf line 33, in terraform:
+  33:   required_providers {
+A module may have only one required providers configuration. The required
+providers were previously configured at main.tf:16,3-21.
+
+Error: Duplicate required providers configuration
+  on versions.tf line 11, in terraform:
+  11:   required_providers {
+A module may have only one required providers configuration. The required
+providers were previously configured at main.tf:16,3-21.
+
+Error: Duplicate output definition
+  on modules/cdn/outputs.tf line 2:
+   2: output "cloudfront_domain_name" {
+An output named "cloudfront_domain_name" was already defined at
+modules/cdn/main.tf:131,1-32. Output names must be unique within a module.
+
+Error: Duplicate output definition
+  on modules/cdn/outputs.tf line 8:
+   8: output "cloudfront_distribution_id" {
+An output named "cloudfront_distribution_id" was already defined at
+modules/cdn/main.tf:136,1-36. Output names must be unique within a module.
+
+Error: Duplicate output definition
+  on modules/cdn/outputs.tf line 14:
+  14: output "cloudfront_oai_iam_arn" {
+An output named "cloudfront_oai_iam_arn" was already defined at
+modules/cdn/main.tf:141,1-32. Output names must be unique within a module.
+
+Error: Duplicate output definition
+  on modules/static-hosting/outputs.tf line 18:
+  18: output "cloudfront_domain_name" {
+An output named "cloudfront_domain_name" was already defined at
+modules/static-hosting/main.tf:194,1-32. Output names must be unique within a module.
+
+Error: Duplicate output definition
+  on modules/static-hosting/outputs.tf line 23:
+  23: output "cloudfront_distribution_id" {
+An output named "cloudfront_distribution_id" was already defined at
+modules/static-hosting/main.tf:189,1-36. Output names must be unique within a module.
+```
+
+Exit code 1 — **7 errors**. The same command in `environments/dev` fails with the same 5 duplicate-output errors from the shared modules. Because initialisation aborts here, the further Terraform defects listed in [W26](#w26--further-terraform-defects-behind-the-initialisation-failure-static-inspection) are reported from static inspection rather than from validator output.
+
+```console
+$ terraform fmt -check -recursive
+environments/dev/main.tf
+environments/prod/main.tf
+main.tf
+modules/cdn/main.tf
+modules/static-hosting/main.tf
+modules/static-hosting/variables.tf
+```
+
+Exit code 3 — 6 of 13 `.tf` files are not canonically formatted.
+
+### E15 — Declared versions versus current published versions
+
+Observed with `npm view <package> version` during this assessment. This is the sole source for every "target" version in [Modernization Opportunities](#modernization-opportunities); no version is asserted from memory.
+
+| Package | Declared in this repository | Current published |
+|---|---|---|
+| `express` | `^4.21.2` (`src/backend`) | 5.2.1 |
+| `jest` | `^29.7.0` (`src/backend`); undeclared in `src/web` | 30.4.2 |
+| `supertest` | `^7.2.2` (`src/backend`) | 7.2.2 — already current |
+| `react` | `^18.2.0` | 19.2.8 |
+| `react-dom` | `^18.2.0` | 19.2.8 |
+| `styled-components` | `^5.3.0` | 6.5.0 |
+| `web-vitals` | `^2.1.0` | 6.0.1 |
+| `typescript` | `^4.9.5` | 7.0.2 |
+| `eslint` | `^8.32.0` | 10.8.0 |
+| `@typescript-eslint/eslint-plugin` | `^5.48.2` | 8.66.0 |
+| `prettier` | `^2.8.0` | 3.9.6 |
+| `webpack` | `^5.75.0` | 5.109.2 |
+| `@testing-library/react` | `^13.4.0` | 16.3.2 |
+| `fork-ts-checker-webpack-plugin` | `^7.3.0` | 9.1.0 |
+| `react-scripts` | `"5.x"` (declared, never invoked) | 5.0.1 |
+
+### E16 — Node.js lifecycle facts and their source
+
+**Source:** the Node.js project's own announcement, *"Bringing forward the End-of-Life Date for Node.js 16"* (`nodejs.org/en/blog/announcements/nodejs16-eol`), corroborated by the AWS Developer Tools post announcing the end of support for Node.js 16.x in the AWS SDK for JavaScript v3, which states the same date.
+
+| Release line | Status | End of life |
+|---|---|---|
+| Node.js 16 | End of life — **brought forward seven months** from April 2024 to align with the end of support for OpenSSL 1.1.1 | **11 September 2023** |
+| Node.js 18 | End of life | 30 April 2025 |
+| Node.js 20 | End of life | 30 April 2026 |
+| Node.js 22 | Maintenance LTS | 30 April 2027 |
+| Node.js 24 | Active LTS | 30 April 2028 |
+| Node.js 26 | Current (released May 2026); scheduled to enter LTS October 2026 | — |
+
+### E17 — Unmerged Dependabot branches
+
+```console
+$ git branch -a
+* blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc
+  main
+  remotes/origin/HEAD -> origin/main
+  remotes/origin/blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc
+  remotes/origin/dependabot/github_actions/actions/checkout-4
+  remotes/origin/dependabot/github_actions/actions/deploy-pages-4
+  remotes/origin/dependabot/github_actions/actions/setup-node-4
+  remotes/origin/dependabot/npm_and_yarn/src/web/fork-ts-checker-webpack-plugin-9.0.2
+  remotes/origin/dependabot/npm_and_yarn/src/web/react-739a6347ca
+  remotes/origin/dependabot/npm_and_yarn/src/web/styled-components-6.1.15
+  remotes/origin/dependabot/npm_and_yarn/src/web/testing-de5456b19f
+  remotes/origin/dependabot/npm_and_yarn/src/web/typescript-eslint-6dbe81030e
+  remotes/origin/main
+```
+
+### E18 — Empty pull request template
+
+```console
+$ (Get-Item .github/pull_request_template.md).Length
+0
+
+$ git cat-file -s HEAD:.github/pull_request_template.md
+0
+```
+
+Zero bytes both on disk and in git history.
+
+### E19 — Cited file and line index
+
+Every path below is repository-relative. Line numbers refer to the assessed commit `dcc5b7f`.
+
+| Path | Lines cited | What is cited there |
+|---|---|---|
+| `src/backend/server.js` | L1–L7 (whole file) | Express bootstrap; `x-powered-by` disabled (L3); both routes (L4–L5); export (L6); guarded `listen` (L7) |
+| `src/backend/package.json` | L4, L6–L9, L10–L13, L15, L17–L20 | `private`; `engines`; scripts; `express ^4.21.2`; `jest`/`supertest` devDependencies |
+| `src/backend/server.test.js` | whole file | Two Supertest assertions on status and exact body |
+| `src/backend/.env.example` | L1 | `PORT=3001` |
+| `src/backend/README.md` | L24–L27 | Endpoint contract table |
+| `src/web/package.json` | L4, L5–L8, L10–L17, L19–L23, L25–L51, L46, L49 | `private`; `engines`; all scripts; dependencies; devDependencies; `react-scripts`; `webpack` |
+| `src/web/webpack.config.ts` | L34, L48, L82, L104–L106, L110, L119, L169, L171, L177–L191 | Output dir; `ts-loader`; HTML injection; `DefinePlugin`; minimize; deprecated Terser option; dev-server HTTPS and CORS; production spread with the `config.plugins` self-reference; performance budget |
+| `src/web/jest.config.ts` | L28–L35, L38, L48, L52–L56, L72–L78, L88 | Coverage thresholds; `setupFilesAfterEnv`; `ts-jest` transform; `moduleNameMapper`; deprecated `globals`; `errorOnDeprecated` |
+| `src/web/tsconfig.json` | L2–L26 | Strict compiler options |
+| `src/web/.eslintrc.json` | L8–L14, L34–L91, L90 | Extends chain; rule set; `arrow-parens` |
+| `src/web/.eslintignore` | whole file | Exclusion of `*.config.ts`, `setupTests.ts`, `reportWebVitals.ts` |
+| `src/web/.prettierrc` | whole file | `arrowParens`, `jsxBracketSameLine`, `vueIndentScriptAndStyle` |
+| `src/web/babel.config.ts` | L34–L36 | `modules`, `useBuiltIns`, `corejs` |
+| `src/web/src/index.tsx` | L38–L42, L45–L51 | Render tree without a `ThemeProvider`; console-only web-vitals callback |
+| `src/web/src/App.tsx` | L23–L34 | `GlobalStyles` + `HelloWorld` in a fragment |
+| `src/web/src/setupTests.ts` | L8 | The unresolvable `'../utils/testUtils'` import |
+| `src/web/src/reportWebVitals.ts` | L44–L48 | Web-vitals piped to `console.log` |
+| `src/web/src/components/HelloWorld/styles.ts` | L3, L16, L19, L22, L37–L40 | Unused `defaultTheme` import; theme reads |
+| `src/web/src/components/HelloWorld/HelloWorld.tsx` | L30, L31, L34, L35–L36 | ARIA attributes, including the invalid `role="text"` |
+| `src/web/src/components/HelloWorld/index.ts` | ~L20 onward, L39 | Prose and markdown fence committed as TypeScript |
+| `src/web/src/components/index.ts` | L36 | Same pattern |
+| `src/web/src/config/constants.ts` | L20, L29, L41 | `as const` on type alias declarations |
+| `src/web/src/utils/errorBoundary.tsx` | L158, L162 | Same prose pattern |
+| `src/web/src/utils/testUtils.ts` | L13, L38–L44, L77 | The only `ThemeProvider` in the repository; JSX in a `.ts` file |
+| `src/web/src/styles/theme.ts` | L13–L46, L54–L65 | `Theme` interface and `defaultTheme`, including `spacing.vertical` |
+| `src/web/public/index.html` | L12–L17, L20–L21, L24, L35 | Meta-tag "security headers"; `%PUBLIC_URL%` tokens; font preconnect; hardcoded bundle path |
+| `.github/workflows/build.yml` | L1, L10–L12, L14–L16, L24–L26, L30, L35, L40, L44, L47, L50–L52, L55, L59, L63, L67 | Workflow name; concurrency; job-wide `NODE_ENV`; working directory; Node pin; action pins; cache path; `npm ci`; non-gating audit; type-check, lint, test, build |
+| `.github/workflows/test.yml` | L1, L15–L17, L22, L28, L33, L37, L41, L44, L51 | Name; working directory; Node pin; action pins; cache path; `npm ci`; `NODE_ENV` |
+| `.github/workflows/deploy.yml` | L1, L4–L8, L17–L19, L34, L39, L45, L49, L53, L60, L66–L70 | Name; the `workflow_run: ["Build"]` trigger; working directory; Node pin; action pins; cache path; install; build; `deploy-pages@v2` with no artifact upload |
+| `.github/dependabot.yml` | L6–L36, L39–L48, L51–L65 | The three `updates` entries |
+| `.github/CODEOWNERS` | L1, L4–L6, L9, L12, L15, L18, L21, L24, L27, L30 | Placeholder owners; phantom `/config/`; invalid patterns; absence of a backend rule |
+| `.github/pull_request_template.md` | whole file (0 bytes) | Empty template |
+| `.gitignore` | L11–L12, L15–L20, L51, L57–L66, L88–L89, L108 | Anchored build/dist rules; env-file rules; `*.tfvars`; secret patterns; lockfile exclusion; inert `.git/` rule |
+| `SECURITY.md` | L21, L25–L27, L43–L54, L64, L69, L77, L79, L84, L90, L99, L138–L144, L153 | Response promises; placeholder contacts; header and transport claims; SRI, CI-security, SAST, assessment and WCAG claims; SLAs; `[Current Date]` placeholder |
+| `CODE_OF_CONDUCT.md` | L61–L77 | Reporting channels with no address; confidentiality contradiction |
+| `CONTRIBUTING.md` | L31, L107, L117, L153 | Node 16 requirement; test tooling; coverage command; contactless security guidance |
+| `LICENSE` | L1–L3 | MIT, 2024 |
+| `infrastructure/docker/Dockerfile` | L2, L6, L18, L21, L24, L28, L35, L39, L51, L54, L61–L62, L69, L75–L76 | Base images; `NODE_VERSION`; non-root user; manifest copy; `npm ci --only=production`; source copy; build; nginx stage; config copy; artefact copy; pid file; `USER`; `HEALTHCHECK` |
+| `infrastructure/docker/docker-compose.yml` | L1, L7–L9, L16, L19, L34, L43, L48–L50, L64, L74, L83–L84, L91 | Obsolete `version`; build context and unresolvable Dockerfile path; missing targets; unset variable; health check; `read_only`; `user: node`; `start:dev`; network and volume options |
+| `infrastructure/docker/.dockerignore` | L1, L60–L62 | `node_modules` exclusion; excluded config files |
+| `infrastructure/docker/nginx.conf` | L2, L5, L8–L12, L15, L61, L67–L73, L79, L85, L101 | Top-level directives illegal in `conf.d`; worker limits; server block; security headers; the `add_header` declarations that discard them; `error_page` |
+| `infrastructure/terraform/main.tf` | L4, L7–L13, L16–L25, L34, L42–L56, L59–L80, L83–L99, L102–L109, L112–L141 | Duplicate `required_version`; interpolated backend; duplicate providers; `timestamp()` tag; module calls; outputs; public-access block; unattached headers policy |
+| `infrastructure/terraform/providers.tf` | L18–L28, L32–L43, L47–L50 | Token sourcing versus its own comment; duplicate providers; conditional data source |
+| `infrastructure/terraform/versions.tf` | L8, L11–L23 | `required_version`; provider sources and pins |
+| `infrastructure/terraform/variables.tf` | whole file | The four declared variables |
+| `infrastructure/terraform/outputs.tf` | L6–L65, L62–L64 | Root outputs; `var.tags` reference |
+| `infrastructure/terraform/modules/cdn/{main,outputs,variables}.tf` | `outputs.tf` L2/L8/L14; `main.tf` L131/L136/L141; `variables.tf` L4–L49 | Duplicate outputs; declared variables |
+| `infrastructure/terraform/modules/static-hosting/{main,outputs,variables}.tf` | `outputs.tf` L2–L50; `main.tf` L189/L194; `variables.tf` L4–L37 | Outputs including CloudFront overlap; duplicate outputs; declared variables |
+| `infrastructure/terraform/environments/dev/main.tf` | L6–L28, L31–L47, L50–L57 | Duplicate composition; literal backend; provider blocks; `var.tags` and locals |
+| `infrastructure/terraform/environments/{dev,prod}/terraform.tfvars` | whole files | `environment`, `region`, `project_name`, `domain_name` |
+| `README.md` (root) | L3–L4, L17, L23–L29, L35, L97–L107, L121, L123–L124, L127–L155, L180, L185–L189 | Badges; WCAG claim; stack notes; prerequisites; directory layout; script table; the Backend (Express) section; contribution bullet; security claims |
+| `documentation/Input Prompt.md` | L1 | The origin brief |
+| `documentation/Technical Specifications.md` | L300, L302–L304, L377–L379, L488–L494, L701, L707, L709 | Database and API "not applicable" assertions; third-party services; authentication table |
+| `documentation/Product Requirements Document (PRD).md` | L136–L142, L163, L194 | Performance targets; availability target; accessibility requirement |
+| `documentation/Project Guide.md` | L1, L3, L12, L18–L28, L82–L93, L94 | Leaked generator prompt; stray fence; WCAG claim; point-in-time status; the eight pending human inputs |
+| `blitzy/documentation/Project Guide.md` | L1, L7–L229 | The second, unrelated guide of the same filename |
+
+### Claims deliberately not made
+
+Enterprise assessments fail most often by asserting a plausible finding that turns out to be wrong. The following claims were considered, could not be substantiated as stated, and are therefore either omitted or restated. They are listed so a reader can see exactly where the boundary of the evidence lies.
+
+| Claim considered | Why it is not made as stated | What is claimed instead |
+|---|---|---|
+| "There are no coverage thresholds." | False as a blanket statement: `src/web/jest.config.ts` L28–L35 declares 100 % global thresholds. | [W11](#w11--coverage-is-either-unenforceable-or-absent) states that the SPA declares thresholds that can never be evaluated because zero tests run, and that `src/backend` declares no coverage configuration at all. |
+| "`documentation/Technical Specifications.md` §5.1.1 asserts the project has no backend." | The actual §5.1.1 (heading at L439) is "Layout Structure". | [W29](#w29--the-technical-specification-still-asserts-the-project-has-no-api) cites the lines that do carry the assertion: §3.3 at L304, §5.3 at L494 and §4.4 at L379. |
+| "The two `Project Guide.md` files are duplicates." | Their hashes differ; they are 94 lines / 3362 bytes and 385 lines / 23771 bytes and cover different subjects. | [W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt) describes them as two different documents sharing one filename with no cross-reference. |
+| "The SPA was observed rendering a blank page." | It was not rendered. A production bundle cannot currently be produced ([W2](#w2--the-spa-build-script-passes-a-flag-webpack-5-removed), [W3](#w3--the-webpack-configuration-references-itself-before-it-is-assigned-and-writes-to-a-directory-the-clean-script-does-not-delete)), so no screenshot or DOM capture exists. | [W9](#w9--the-spa-renders-a-blank-page-because-no-themeprovider-wraps-the-tree) derives the outcome from source — no `ThemeProvider` in the render path, theme reads in `styles.ts` — and says so explicitly. |
+| "Terraform reports an error for the interpolated backend, the undeclared `var.tags`, and the module-argument mismatches." | `terraform init` aborts at the 7 earlier errors and never evaluates these. | [W26](#w26--further-terraform-defects-behind-the-initialisation-failure-static-inspection) is labelled *static inspection* and states that these surface only once [W25](#w25--terraform-does-not-initialise) is resolved. |
+| Any specific CVE identifier affecting this dependency tree. | `npm audit --json` reported **zero** advisories across 356 packages, and no other scanner was run. | [S14](#s14--the-backend-dependency-tree-currently-reports-zero-advisories) reports the zero result; [R3](#risk-register) and [R9](#risk-register) are framed as end-of-life and currency risks, not as known-vulnerability risks. |
+| "`npm ci` fails in this repository." | It succeeds in this working tree, because of a git-ignored lockfile left by a prior `npm install`. | [W1](#w1--no-lockfile-is-committed-while-all-three-workflows-require-one) and [E9](#e9--clean-install-reproducibility) draw the distinction explicitly and prove the failure with a fresh-clone simulation. |
+| "The nginx container serves no security headers, therefore the site is unprotected in production." | Whether a production site exists, and what serves it, cannot be determined from the repository. | [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were) confines itself to what the committed configuration would do; [R5](#risk-register) frames the consequence as a documentation-accuracy risk. |
+| A defect count for the five unparseable SPA files. | Neither `tsc` nor ESLint can analyse a file it cannot parse, so the true count is unknown. | [W6](#w6--the-spa-does-not-type-check-13-errors-all-syntax-level) and [W7](#w7--the-spa-does-not-lint-92-problems) report the observed counts (13 and 92) and note that the real figure for those files is unknown until they parse. |
+
+### Assessment metadata
+
+| Field | Value |
+|---|---|
+| Document | `documentation/Enterprise Adoption Readiness Assessment.md` |
+| Repository branch | `blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc` |
+| Commit assessed | `dcc5b7f4adc7791b09c527284d0d849c993e5a03` |
+| Tracked files at that commit | 80 |
+| Assessment host runtime | Node v22.23.2, npm 10.9.8 |
+| Tools used | git, npm, Node.js, TypeScript (`tsc`), ESLint, Jest, Docker 29.7.1, Docker Compose, Terraform 1.15.8 |
+| Nature of this document | Read-only assessment. No finding was remediated; no functional file was modified. |
+| Findings recorded | 14 strengths, 33 weaknesses, 15 risks, 27 modernization opportunities, 37 recommended steps across three waves |
+
+---
+
+That is the complete picture: a small, correct, well-tested service and a well-intentioned SPA, wrapped in enterprise scaffolding that has never been run end to end. Fix the lockfile and the pipeline first, make the documentation tell the truth, and the rest becomes ordinary engineering work.
+
+> **That's all, Folks!**
+>
+> — Porky Pig, *Looney Tunes*
+
