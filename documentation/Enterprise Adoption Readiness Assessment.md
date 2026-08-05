@@ -6,13 +6,19 @@
 
 **Branch assessed:** `blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc`
 
-**Commit assessed (HEAD):** `dcc5b7f4adc7791b09c527284d0d849c993e5a03` (short `dcc5b7f`)
+**Commit assessed (HEAD):** `47c6508a3576d89bf89edbb93e0ef307ac758019` (short `47c6508`)
 
-**Tracked files at that commit:** 80 (`git ls-files`)
+**Tracked files at that commit:** 81 (`git ls-files`)
 
-**Line references:** every `path:line` citation below resolves against the tree as committed by this change. Root `README.md` gains the six-line **Enterprise Adoption Readiness** pointer section at L157–L162, so citations into the part of that file below the insertion sit six lines lower than they do at the assessed commit; no other file's numbering is affected, because no other file is modified.
+**Baseline and re-validation:** this assessment was first authored against commit `dcc5b7f4adc7791b09c527284d0d849c993e5a03` (short `dcc5b7f`, 80 tracked files) and has since been **re-baselined and re-validated in full against `47c6508` on 5 August 2026**. `47c6508` is the commit that every `path:line` citation, every measured figure and every appendix transcript below now resolves against. Exactly three paths differ between the two commits (`git diff --name-status dcc5b7f..HEAD`): root `README.md` (modified), `blitzy/documentation/Project Guide.md` (modified — a platform-generated artefact rewritten on each run, not edited by this assessment; see [W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt)), and this document itself (added — which is the whole of the 80 → 81 movement in the count above). Every other cited file is byte-identical across the two commits, so none of its citations was affected by the move; the claims carried by the three changed paths were re-measured and are recorded at their re-observed values. Exactly one claim could not be re-reproduced from this checkout — the unmerged update-branch list in [E17](#e17--unmerged-dependabot-branches) — and is carried forward with its original observation date and labelled as such where it appears.
 
-**Revision:** every runtime claim in this document was subsequently re-executed and checked against what the software actually does. Four descriptions were found to overstate or misattribute observed behaviour and have been corrected in place — [W5](#w5--the-spa-build-is-wired-to-rewrite-its-own-source-tree-including-in-ci), [W9](#w9--no-themeprovider-wraps-the-tree-so-the-spas-first-render-is-primed-to-throw), [W11](#w11--coverage-is-either-unenforceable-or-absent) and the `README.md` L121 row of [W28](#w28--root-readmemd-misdescribes-the-repository-in-seven-places). Nothing in the repository was changed to accommodate them: the assessed commit, the `src/web` tree and every declared version are exactly as recorded above. Finding IDs introduced by the revision are **append-only** — [W34](#w34--npm-start-does-not-start-the-dev-server-cannot-load-its-own-configuration), [W35](#w35--the-pages-own-content-security-policy-kills-the-development-bundle-before-react-executes), [P0-15](#p0--make-it-green-and-reproducible-030-days), [E20](#e20--spa-development-runtime-npm-start-the-csp-conflict-and-the-rendered-page) and [E21](#e21--coverage-thresholds-and-the-validate-short-circuit) — so every cross-reference published before the revision still resolves.
+`47c6508` names **the commit whose tree was analysed and re-validated**, not the commit that carries this file: a document that records the hash of the commit containing it cannot exist, so the commit publishing any revision of this document is necessarily a later one. That is expected and is not evidence drift. What *would* be drift — and what this revision corrected — is a citation whose target no longer says what the document claims it says.
+
+**Line references:** every `path:line` citation below resolves against the tree at the re-validation commit `47c6508`. The six-line **Enterprise Adoption Readiness** pointer section is committed in root `README.md` at L157–L162, which makes that file 217 lines, so the citations into the part of it that sits below the insertion — L186, L191, L193, L194 and L195 — are written at their post-insertion numbers, and each of the five was re-verified line by line on 5 August 2026. No other cited file's numbering has moved, because no other file this document cites has been modified.
+
+**Revision 1 — runtime re-verification:** every runtime claim in this document was subsequently re-executed and checked against what the software actually does. Four descriptions were found to overstate or misattribute observed behaviour and have been corrected in place — [W5](#w5--the-spa-build-is-wired-to-rewrite-its-own-source-tree-including-in-ci), [W9](#w9--no-themeprovider-wraps-the-tree-so-the-spas-first-render-is-primed-to-throw), [W11](#w11--coverage-is-either-unenforceable-or-absent) and the `README.md` L121 row of [W28](#w28--root-readmemd-misdescribes-the-repository-in-seven-places). Nothing in the repository was changed to accommodate them: the assessed commit, the `src/web` tree and every declared version are exactly as recorded above. Finding IDs introduced by the revision are **append-only** — [W34](#w34--npm-start-does-not-start-the-dev-server-cannot-load-its-own-configuration), [W35](#w35--the-pages-own-content-security-policy-kills-the-development-bundle-before-react-executes), [P0-15](#p0--make-it-green-and-reproducible-030-days), [E20](#e20--spa-development-runtime-npm-start-the-csp-conflict-and-the-rendered-page) and [E21](#e21--coverage-thresholds-and-the-validate-short-circuit) — so every cross-reference published before the revision still resolves.
+
+**Revision 2 — evidence re-baseline, 5 August 2026:** the document was re-pinned from `dcc5b7f` to `47c6508` and every command in [What was executed](#what-was-executed) was re-run against the current tree. The great majority of asserted figures reproduced exactly and have been left byte-identical; only the values that had genuinely moved were corrected. Those were: the assessed commit and the tracked-file count (above, in [E1](#e1--repository-state-at-the-assessed-commit), in the [E19](#e19--cited-file-and-line-index) preamble and in the [Assessment metadata](#assessment-metadata)); the size, title and subject-matter claims about the regenerated `blitzy/documentation/Project Guide.md` (in [W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt), the [E1](#e1--repository-state-at-the-assessed-commit) diffstat, the [E19](#e19--cited-file-and-line-index) index row and the [Claims Deliberately Not Made](#claims-deliberately-not-made) row); the build-context size in [E12](#e12--docker-stage-resolution-and-build-context); the two Terraform provider point releases in [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources); and two rows of [E20](#e20--spa-development-runtime-npm-start-the-csp-conflict-and-the-rendered-page) — the document-wide search for "Hello World" and the determinism statement — both of which re-running the browser observation proved needed narrowing rather than restating. [E15](#e15--declared-versions-versus-current-published-versions) was additionally extended to cover every declared dependency of both manifests instead of a subset. The point-in-time **external** facts were re-observed from the same publishers rather than carried over — the three GitHub Actions releases pages, the Node.js lifecycle sources, and the Express 5 and Jest 30 upgrade guides, with [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources) recording the re-reading source by source, including the one corroborating source that was deliberately not re-fetched and why nothing depends on it alone — and every one of them reconciled unchanged apart from the two provider point releases named above; the one figure that changes with the calendar rather than with a source, the days-since-Node-16-end-of-life count in [W4](#w4--the-declared-runtime-has-been-out-of-support-for-nearly-three-years-and-diverges-from-the-runtime-actually-used), was recomputed rather than copied. No finding was added, removed, renumbered or remediated; no declared version was changed; nothing in the repository was modified. Every cross-reference published before this revision therefore still resolves.
 
 **Question this document answers:** if an enterprise engineering organisation adopted this repository as-is — took ownership of it, put it in a regulated delivery pipeline, and ran it in production — what would it find? The assessment therefore judges the repository against enterprise expectations for reproducible builds, enforced quality gates, operability, security posture, deployability, documentation accuracy and governance. It does **not** judge the repository against its own origin brief, which asked for something deliberately much smaller: *"build me a hello world webpage. please make it simple, do as little as possible. Use reactjs and typescript as the tech stack."* (`documentation/Input Prompt.md`). That gap between origin intent and enterprise expectation is the central theme of everything below.
 
@@ -28,14 +34,17 @@
 | Infrastructure as code | `infrastructure/docker/Dockerfile`, `docker-compose.yml`, `nginx.conf`, `.dockerignore`; `infrastructure/terraform/{main,variables,outputs,providers,versions}.tf`, `modules/{static-hosting,cdn}/*`, `environments/{dev,prod}/*` |
 | Repository configuration | `.gitignore` |
 | Documentation | root `README.md`, `documentation/Input Prompt.md`, `documentation/Product Requirements Document (PRD).md`, `documentation/Project Guide.md`, `documentation/Technical Specifications.md`, `blitzy/documentation/Project Guide.md` |
+| This deliverable | `documentation/Enterprise Adoption Readiness Assessment.md` — the only file this assessment adds to the repository, and therefore the whole of the 80 → 81 movement in the tracked-file count above. It is read solely for internal consistency (heading anchors, the [cited file and line index](#e19--cited-file-and-line-index), and the finding inventory in the [Assessment metadata](#assessment-metadata)); it is never treated as evidence about the repository. |
 
 ### What was executed
 
 Every command below was run against this checkout and its real output is reproduced in the [Evidence Appendix](#evidence-appendix). No command was permitted to modify a tracked file, and `git status --porcelain` was re-checked after each one to confirm none did.
 
+Every command in this table was re-run in full at the re-validation commit `47c6508` on 5 August 2026, and each reproduced the counts, exit codes, identifiers and message text recorded in the appendix; where a re-run produced a different *number*, the number printed in this document is the re-observed one. Captured transcripts keep the wall-clock timings of the run that produced them, so a timing inside a fenced transcript may differ from a later run's while every count around it matches — timings are a property of the machine, not a finding. One table row cannot be reproduced from every checkout: `git branch -a` only lists the update branches in a clone whose origin carries them, which is why [E17](#e17--unmerged-dependabot-branches) records its own precondition and is carried forward rather than restated.
+
 | Command | Working directory | Purpose |
 |---|---|---|
-| `git ls-files`, `git diff main...HEAD --stat`, `git branch -a`, `git check-ignore -v --no-index` | repository root | Inventory, branch backlog, ignore-rule verification |
+| `git ls-files`, `git diff origin/main...HEAD --stat` (the `main...HEAD` form only works in a clone that has a local mainline ref — see [E1](#e1--repository-state-at-the-assessed-commit)), `git branch -a`, `git check-ignore -v --no-index` | repository root | Inventory, branch backlog, ignore-rule verification |
 | `npm test` | `src/backend` | Backend suite result |
 | `npm audit --json` | `src/backend`; and `src/web`, after `npm install --package-lock-only --ignore-scripts` there, because `npm audit` needs a lockfile and none is committed | Advisory posture of **both** dependency trees |
 | `node server.js` + HTTP requests to `/` and `/good-evening`, with and without a `PORT` override | `src/backend` | Endpoint behaviour and configurability |
@@ -53,7 +62,7 @@ Every command below was run against this checkout and its real output is reprodu
 
 ### What was deliberately **not** done
 
-- **Nothing was fixed, corrected, upgraded or refactored.** This is an assessment, not a remediation. Every finding below is reported and left in place. `git diff` for `src/backend`, `src/web`, `.github`, `infrastructure`, `.gitignore`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and the pre-existing `documentation/*.md` files is empty at the time of writing.
+- **Nothing was fixed, corrected, upgraded or refactored.** This is an assessment, not a remediation. Every finding below is reported and left in place. `git diff` for `src/backend`, `src/web`, `.github`, `infrastructure`, `.gitignore`, `LICENSE`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and the pre-existing `documentation/*.md` files is empty, and was re-checked path by path at the re-validation commit and found empty again. `blitzy/documentation/Project Guide.md` *does* differ between `dcc5b7f` and `47c6508`, but that file is regenerated by the platform on every run and was not touched by this assessment — which is precisely why every measurement of it below carries the date it was taken.
 - **No dependency, script, endpoint, middleware or test was added**, and no declared version was changed anywhere. Where this document recommends an upgrade, that recommendation exists as prose only.
 - **No documentation discrepancy was corrected.** The inaccurate statements found in `README.md`, `SECURITY.md`, `documentation/Technical Specifications.md`, `documentation/Product Requirements Document (PRD).md` and `documentation/Project Guide.md` are named — with path and line — and left exactly as they are.
 - **Terraform and Docker were exercised without touching `infrastructure/`.** Terraform ran against a throwaway copy of the tree; the Docker probe produced no retained image.
@@ -62,7 +71,7 @@ Every command below was run against this checkout and its real output is reprodu
 ### Method and honesty rules applied
 
 1. Every claim is traceable to one of three things: a file path in this repository (with line numbers where a specific line matters), a command whose real output appears in the appendix, or a cited authoritative external source. Facts about the world outside this repository — runtime support lifecycles, current published versions, framework upgrade requirements — necessarily rest on the third category, and every one of them is linked in the appendix so it can be re-checked.
-2. No CVE identifier, metric, version, date or path is asserted from memory. Current versions of **npm packages** come from `npm view` (see [E15](#e15--declared-versions-versus-current-published-versions)). Because `npm view` structurally cannot reach an artefact that is not an npm package, the current majors of the **GitHub Actions** the workflows use were read from each action repository's own `releases/latest` page (see [E15a](#e15a--github-actions-declared-versions-versus-current-releases)), and the current majors of the **Terraform providers** from the Terraform Registry; every one of those readings, and the date it was taken, is recorded in [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources). No currency claim in this document is inferred from a Dependabot branch name. The Node.js end-of-life dates come from the Node.js project's own announcement and release schedule, corroborated by a vendor announcement, and the Express 5 and Jest 30 upgrade requirements come from those projects' own upgrade guides — both also recorded in [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources).
+2. No CVE identifier, metric, version, date or path is asserted from memory. Current versions of **npm packages** come from `npm view` (see [E15](#e15--declared-versions-versus-current-published-versions)). Because `npm view` structurally cannot reach an artefact that is not an npm package, the current majors of the **GitHub Actions** the workflows use were read from each action repository's own releases page — the tag carrying the **Latest** badge, never a third-party release-tracking mirror (see [E15a](#e15a--github-actions-declared-versions-versus-current-releases)) — and the current heads of the **Terraform providers** were resolved from the Terraform Registry by `terraform init` against an unconstrained `required_providers` block in a throwaway configuration outside this repository; every one of those readings, the mechanism that produced it and the date it was taken is recorded in [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources). No currency claim in this document is inferred from a Dependabot branch name. The Node.js end-of-life dates come from the Node.js project's own announcement and release schedule, corroborated by a vendor announcement, and the Express 5 and Jest 30 upgrade requirements come from those projects' own upgrade guides — both also recorded in [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources).
 3. Externally sourced facts are point-in-time. Every version and lifecycle statement in this document carries or inherits an explicit observation date, and should be re-checked against the linked source before any of it is acted upon.
 4. Where a plausible-sounding claim could not be verified, it is either omitted or explicitly labelled. [Claims Deliberately Not Made](#claims-deliberately-not-made) lists every such case and why.
 5. Findings derived from reading configuration rather than from running a validator are labelled *static inspection*.
@@ -565,7 +574,7 @@ Beyond the missing stages, `infrastructure/docker/docker-compose.yml` has five i
 
 Two further consistency problems: L34 sets `read_only: true` with `tmpfs` for `/tmp` and `/var/cache/nginx`, but `Dockerfile` L61–L62 writes `/var/run/nginx.pid`, which is on the read-only layer; and L83–L84 attaches `driver_opts: encrypted: "true"` to a `bridge` network, where that option has no effect (it is an overlay-network setting).
 
-Separately, `.dockerignore` is in the wrong place. Docker reads `.dockerignore` from the **build context root**, which Compose sets to `src/web`; the file lives at `infrastructure/docker/.dockerignore` and is therefore never applied. The proof is in the build probe's own first line — `Sending build context to Docker daemon 323.3MB` — a context that size can only mean `node_modules` was uploaded, exactly what `.dockerignore` L1 was meant to prevent.
+Separately, `.dockerignore` is in the wrong place. Docker reads `.dockerignore` from the **build context root**, which Compose sets to `src/web`; the file lives at `infrastructure/docker/.dockerignore` and is therefore never applied. The proof is in the build probe's own first line — `Sending build context to Docker daemon 333.5MB` when measured on 5 August 2026 with dependencies installed — a context that size can only mean `node_modules` was uploaded, exactly what `.dockerignore` L1 was meant to prevent. The size varies with the state of the working tree and is not the finding; see the reproduction precondition in [E12](#e12--docker-stage-resolution-and-build-context).
 
 #### W24 — Terraform is not formatted to its own canonical style
 
@@ -649,7 +658,9 @@ The document also duplicates whole sections against itself: §3.2 and §5.2 are 
 
 #### W30 — Two documents named `Project Guide.md` disagree, and one of them leaks its own generator prompt
 
-`documentation/Project Guide.md` (94 lines, 3362 bytes) and `blitzy/documentation/Project Guide.md` (385 lines, 23771 bytes) share a filename but are entirely different documents with different hashes. The first describes only the SPA and never mentions the backend; the second is titled *"Blitzy Project Guide — Express Backend"* and is about nothing else. Neither references the other, so there is no way for a reader to know which is authoritative or that the other exists.
+`documentation/Project Guide.md` (94 lines, 3362 bytes) and `blitzy/documentation/Project Guide.md` share a filename but are entirely different documents, with different hashes and different subjects. The first describes only the SPA and never mentions the backend — the strings `backend`, `express` and `endpoint` do not occur in it at all.
+
+The second is a **platform-generated build artefact that is rewritten on every run**, so its title, length and interior line numbers are not stable properties of the repository and must not be cited as if they were. Measured at the re-validation commit on **5 August 2026** it is **708 lines / 61755 bytes**, titled *"Blitzy Project Guide — Express.js Backend Endpoints"*, and it pins its own provenance internally at its L3–L4 (`HEAD: 958d31b`, `Base: da0d24d`, `Assessment date: 2026-08-05`) — a commit that is neither the one this assessment was authored against nor the one it is re-validated at. It leads with the backend feature but is not confined to it: its §4 *Runtime Validation & UI Verification* carries a *Frontend SPA (out of AAP scope)* subsection, and it refers to `src/web` throughout. Neither document references the other, so a reader has no way to know which is authoritative or even that the other exists — and because the generated one is replaced on every run, no line of it can be relied upon to survive.
 
 `documentation/Project Guide.md` has three further defects:
 
@@ -683,7 +694,7 @@ Small individually, but together they show that no configuration in the reposito
 
 #### W33 — Eight dependency update branches are open and unmerged
 
-`git branch -a` shows eight Dependabot branches on the remote, none merged:
+`git branch -a` shows eight Dependabot branches on the remote, none merged. This is the **one claim in this document that the 5 August 2026 re-validation could not re-execute** — the checkout it was re-validated in cannot see those refs at all — so the list below is **carried forward from the original observation** and is labelled *static inspection*; the precondition, the test for which situation a given clone is in, and the reason are all recorded in [E17](#e17--unmerged-dependabot-branches).
 
 | Ecosystem | Branch |
 |---|---|
@@ -739,7 +750,9 @@ A second, independent chain runs through trust: **R5 (inaccurate documentation) 
 
 **These are recommendations only. Nothing in this section has been implemented, and no declared version anywhere in the repository was changed while producing this assessment.** `src/backend/package.json` still declares `express ^4.21.2`, `jest ^29.7.0` and `supertest ^7.2.2` with `engines node >= 16.0.0` / `npm >= 8.0.0`; `src/web/package.json` is untouched; all three workflows still pin `node-version: [16.x]`; and `infrastructure/docker/Dockerfile` still builds on `node:16-alpine`.
 
-Every "target" version below for an **npm package** is the version currently published on the npm registry, observed with `npm view <package> version` and re-observed on **5 August 2026**; the full table is reproduced in the [Evidence Appendix](#evidence-appendix). Target versions for **GitHub Actions** are not npm packages and do not come from `npm view`; they come from each action's own GitHub release page, also recorded in the appendix with tag, release date and commit. Version currency decays, so every target below should be re-checked against these same sources before the work is scheduled. Where crossing several majors at once would be unwise, an intermediate migration milestone is named.
+Every "target" version below for an **npm package** is the version currently published on the npm registry, observed with `npm view <package> version` and re-observed on **5 August 2026**; the full table is reproduced in the [Evidence Appendix](#evidence-appendix). Target versions for **GitHub Actions** are not npm packages and do not come from `npm view`; they come from each action's own GitHub releases page, also recorded in the appendix with tag, release date and commit. Version currency decays, so every target below should be re-checked against these same sources before the work is scheduled. Where crossing several majors at once would be unwise, an intermediate migration milestone is named.
+
+At the evidence re-baseline every target in this section was re-observed against those same sources. **No target below changed.** The only currency figures anywhere in this assessment that had moved were the two Terraform provider heads recorded in the appendix, and they moved by one minor each while both majors — the part M26 actually rests on — held. That is the expected behaviour of this section: the recommendations are expressed as majors and as named intermediate milestones precisely so that a minor bump on the registry does not invalidate them.
 
 ### Runtime and platform
 
@@ -756,7 +769,7 @@ Every "target" version below for an **npm package** is the version currently pub
 |---|---|---|---|
 | M5 | `package-lock.json` and `yarn.lock` git-ignored (`.gitignore` L88–L89); `npm ci` fails in a clean checkout | Commit a `package-lock.json` per package (or one root lockfile under M3) and keep `npm ci` as the only install command in CI and in the `Dockerfile` | Requires removing L88–L89 from `.gitignore` and committing the generated lockfiles. This single change makes all three workflows' existing `cache-dependency-path` settings correct, unblocks the whole Dependabot backlog ([W33](#w33--eight-dependency-update-branches-are-open-and-unmerged)), and gives every subsequent supply-chain control (SBOM, provenance, dependency review) a stable input. It is the highest-leverage single change available in this repository. |
 | M6 | No SBOM, no artefact signing, no provenance, no dependency-review gate; `npm audit` non-gating (`build.yml` L50–L52) | CycloneDX or SPDX SBOM generated per build and published as a release artefact; `npm audit` (or `osv-scanner`) as a **gating** step with an explicit, reviewed allowlist; `actions/dependency-review-action` on pull requests; build provenance attestation | Depends on M5 — an SBOM without a lockfile is not meaningfully reproducible. Making the audit gate will initially fail builds, so it needs a triage window and a documented exception process. This is the set of controls most software-supply-chain frameworks now ask for by name. |
-| M7 | Actions pinned to `checkout@v3`, `setup-node@v3`, `deploy-pages@v2`; three update branches already open, every one of them targeting the **v4** line | Current majors as of 5 August 2026, read from each action repository's own `releases/latest` page and recorded with their sources in [E15a](#e15a--github-actions-declared-versions-versus-current-releases) and [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources): **`checkout@v7`** (latest release v7.0.1), **`setup-node@v7`** (v7.0.0), **`deploy-pages@v5`** (v5.0.0); ideally pinned by commit SHA rather than by tag | The three open Dependabot branches are **stale intermediate upgrades, not the current majors** — they stop at `v4`, leaving `checkout` and `setup-node` three majors behind and `deploy-pages` one behind (tags, dates and commits in [E15a](#e15a--github-actions-declared-versions-versus-current-releases)). Merging them is review-and-merge rather than authoring and is still worth doing as a first hop — `checkout`'s v4 line is still maintained, its head being v4.4.0, while `deploy-pages` has no current v4 release — but it does not reach current, so a deliberate second bump is required afterwards ([P0-10](#p0--make-it-green-and-reproducible-030-days)). Note the newest majors migrated to ESM and raise the minimum Actions Runner version, so verify runner compatibility rather than bumping blind. Pinning by SHA additionally protects against a tag being re-pointed — a control several frameworks require for third-party actions. |
+| M7 | Actions pinned to `checkout@v3`, `setup-node@v3`, `deploy-pages@v2`; three update branches already open, every one of them targeting the **v4** line | Current majors as of 5 August 2026, read from each action repository's own releases page — where exactly one tag carries the **Latest** badge — and recorded with their sources in [E15a](#e15a--github-actions-declared-versions-versus-current-releases) and [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources): **`checkout@v7`** (latest release v7.0.1), **`setup-node@v7`** (v7.0.0), **`deploy-pages@v5`** (v5.0.0); ideally pinned by commit SHA rather than by tag | The three open Dependabot branches are **stale intermediate upgrades, not the current majors** — they stop at `v4`, leaving `checkout` and `setup-node` three majors behind and `deploy-pages` one behind (tags, dates and commits in [E15a](#e15a--github-actions-declared-versions-versus-current-releases)). Merging them is review-and-merge rather than authoring and is still worth doing as a first hop — `checkout`'s v4 line is still maintained, its head being v4.4.0, while `deploy-pages` has no current v4 release — but it does not reach current, so a deliberate second bump is required afterwards ([P0-10](#p0--make-it-green-and-reproducible-030-days)). Note the newest majors migrated to ESM and raise the minimum Actions Runner version, so verify runner compatibility rather than bumping blind. Pinning by SHA additionally protects against a tag being re-pointed — a control several frameworks require for third-party actions. |
 
 ### Frontend stack currency
 
@@ -818,12 +831,13 @@ The roadmap below is ordered by dependency, not by preference. **P0 makes the re
 | P0-8 | Wrap the application in a styled-components `ThemeProvider` supplying `defaultTheme` — both `GlobalStyles` and `HelloWorld` need it — and add one smoke test asserting the message renders. **Depends on P0-15 for the development path and on P0-7 for the production path:** until one of them lands the bundle cannot execute, so this change is unobservable. Target: the rendered page shows the message. | Frontend Engineer | **S** | [W9](#w9--no-themeprovider-wraps-the-tree-so-the-spas-first-render-is-primed-to-throw), [R11](#risk-register) |
 | P0-9 | Add a backend CI job (install, test, audit) and correct `deploy.yml` L6 to `workflows: ["Build and Test"]`. Add `concurrency` and `timeout-minutes` to `test.yml` and `deploy.yml`; deduplicate `test.yml` against `build.yml`. | DevOps Engineer | **M** | [W12](#w12--the-deployment-workflow-can-never-trigger-and-could-not-deploy-if-it-did), [W13](#w13--the-backend-has-zero-ci-coverage), [R7](#risk-register) |
 | P0-10 | Merge the three GitHub Actions update branches (`checkout-4`, `setup-node-4`, `deploy-pages-4`) as an intermediate hop, then raise a follow-up that bumps the same three actions again to the current majors (`checkout@v7`, `setup-node@v7`, `deploy-pages@v5` as of 5 August 2026 — see [M7](#reproducibility-and-supply-chain) and [E16](#e16--runtime-framework-and-tooling-lifecycle-facts-and-their-sources)), checking runner compatibility for the ESM-based majors, and re-pin all three by commit SHA. Then work through the five npm branches now that checks can go green. | DevOps Engineer | **S** | [W33](#w33--eight-dependency-update-branches-are-open-and-unmerged), [R9](#risk-register), [M7](#reproducibility-and-supply-chain) |
+| P0-16 | Harden `.github/dependabot.yml` itself, so the queue P0-10 drains stays reviewable afterwards: set an `open-pull-requests-limit` on all three `updates` entries to bound the backlog, add `groups` to the `/src/backend` entry (L51–L65) so backend bumps arrive as one reviewable pull request instead of one per package — mirroring the three groups the `/src/web` entry already declares at L22 — and give every entry a routable owner, either via `reviewers`/`assignees` or by relying on the dedicated `/src/backend/` CODEOWNERS rule added in P0-12. | DevOps Engineer | **S** | [W33](#w33--eight-dependency-update-branches-are-open-and-unmerged), [R9](#risk-register), [R6](#risk-register) |
 | P0-11 | Correct every inaccurate documentation claim: `README.md` L3–L4 badges, L17, L25, L28, L97–L107, L121, L123–L124, L191–L195; `SECURITY.md` L64/L69/L77/L79/L99 and the `[Current Date]` placeholder at L153; `documentation/Technical Specifications.md` L304/L379/L494/L707–L709; the stray `markdown` fence and leaked generator prompt in `documentation/Project Guide.md`. Reconcile or cross-reference the two `Project Guide.md` files. | Technical Writer + Engineering Lead | **M** | [W28](#w28--root-readmemd-misdescribes-the-repository-in-seven-places)–[W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt), [R5](#risk-register) |
 | P0-12 | Replace the nine generic owners in `.github/CODEOWNERS` with named teams, and confirm via GitHub's server-side CODEOWNERS validation that each resolves and holds write access; add a dedicated `/src/backend/` rule so the delivered service has an identifiable owner instead of inheriting the L1 default; fix the invalid multi-pattern lines (L18, L21, L30) and the brace-expansion pattern (L5); remove the phantom `/config/` rule (L15) and the untrackable `package-lock.json` owner (L21); then enable required-review branch protection. | Engineering Manager | **S** | [W20](#w20--codeowners-relies-on-generic-placeholder-handles-and-assigns-the-backend-no-dedicated-owner), [R6](#risk-register) |
 | P0-13 | Replace the placeholder security contacts in `SECURITY.md` with a monitored channel and enable GitHub private vulnerability reporting; add a reporting address to `CODE_OF_CONDUCT.md` L70; author the empty `.github/pull_request_template.md` with a tests / risk / rollback / docs checklist. | Security Lead + Engineering Manager | **S** | [W21](#w21--securitymd-promises-a-security-programme-the-repository-does-not-have), [W31](#w31--the-pull-request-template-is-empty-and-the-code-of-conduct-has-no-contact), [R6](#risk-register) |
 | P0-14 | Fix the two `.gitignore` rules: unanchor `build`/`dist` (or scope them to `src/web/`), and reconcile `*.tfvars` with the two files already tracked. | Build / Platform Engineer | **S** | [W27](#w27--two-gitignore-rules-do-not-do-what-the-repository-needs), [R12](#risk-register) |
 
-> **On the numbering:** step IDs are append-only across revisions of this document, so **P0-15 is listed in dependency order rather than in numerical order** — it precedes P0-8 because it unblocks it. The same convention applies to [W34](#w34--npm-start-does-not-start-the-dev-server-cannot-load-its-own-configuration) and [W35](#w35--the-pages-own-content-security-policy-kills-the-development-bundle-before-react-executes), which sit beside the findings they extend.
+> **On the numbering:** step IDs are append-only across revisions of this document, so **P0-15 and P0-16 are listed in dependency order rather than in numerical order** — P0-15 precedes P0-8 because it unblocks it, and P0-16 follows P0-10 because both act on the same dependency-update automation, P0-10 draining the existing queue and P0-16 keeping it drained. The same convention applies to [W34](#w34--npm-start-does-not-start-the-dev-server-cannot-load-its-own-configuration) and [W35](#w35--the-pages-own-content-security-policy-kills-the-development-bundle-before-react-executes), which sit beside the findings they extend.
 
 ### P1 — Make it operable and secure (30–90 days)
 
@@ -883,24 +897,27 @@ $ git rev-parse --abbrev-ref HEAD
 blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc
 
 $ git rev-parse HEAD
-dcc5b7f4adc7791b09c527284d0d849c993e5a03
+47c6508a3576d89bf89edbb93e0ef307ac758019
 
-$ git ls-files | Measure-Object -Line
-Lines: 80
+$ (git ls-files | Measure-Object -Line).Lines
+81
 
-$ git diff main...HEAD --stat
- .github/dependabot.yml                |  19 +-
- README.md                             |  30 +++
- blitzy/documentation/Project Guide.md | 385 +++++++++++++++++++++++++++++++++++
- src/backend/.env.example              |   1 +
- src/backend/README.md                 |  42 ++++
- src/backend/package.json              |  21 ++
- src/backend/server.js                 |   7 +
- src/backend/server.test.js            |  11 +
- 8 files changed, 515 insertions(+), 1 deletion(-)
+$ git diff origin/main...HEAD --stat=100
+ .github/dependabot.yml                                    |   19 +-
+ README.md                                                 |   36 +
+ blitzy/documentation/Project Guide.md                     |  708 +++++++++++++++
+ documentation/Enterprise Adoption Readiness Assessment.md | 1517 +++++++++++++++++++++++++++++++++
+ src/backend/.env.example                                  |    1 +
+ src/backend/README.md                                     |   42 +
+ src/backend/package.json                                  |   21 +
+ src/backend/server.js                                     |    7 +
+ src/backend/server.test.js                                |   11 +
+ 9 files changed, 2361 insertions(+), 1 deletion(-)
 ```
 
-*Reproduction precondition:* the `main...HEAD` form needs a mainline ref that the clone can actually resolve, and `HEAD` at the assessed commit. A clone that has no local `main` — only a remote-tracking `origin/main` — and that has moved past `dcc5b7f` must name both ends explicitly: `git diff origin/main...dcc5b7f --stat`, which reproduces the block above verbatim. Without a reachable mainline ref, `git` fails with *"fatal: Needed a single revision"* rather than printing a different result.
+*Reading the two rows that move.* `blitzy/documentation/Project Guide.md` is a platform-generated artefact rewritten on every run, so its 708-line row is a measurement taken on 5 August 2026 rather than a property of the repository ([W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt)). This document's own row is self-referential for the same structural reason: each revision of it changes that one number and nothing else in the block, so the figure shown is its size at the re-validation commit.
+
+*Reproduction precondition:* the width is pinned with `--stat=100` so the histogram does not rescale with the terminal, and the `main...HEAD` form needs a mainline ref that the clone can actually resolve. A clone that has no local `main` — only a remote-tracking `origin/main` — must name that end explicitly, as the transcript above does; with a local `main` present, `main...HEAD` prints the same block. Without any reachable mainline ref, `git` fails with *"fatal: Needed a single revision"* rather than printing a different result. The previous baseline also remains exactly reproducible from this tree — `git diff origin/main...dcc5b7f --stat=100` still prints the eight-file, 515-insertion block recorded before the re-baseline, with `README.md` at 30 lines and the generated guide at 385 — which is how the two commits' evidence was reconciled.
 
 ### E2 — Runtime actually in use, versus the runtime the repository pins
 
@@ -945,7 +962,7 @@ metadata.dependencies:    prod 69, dev 288, optional 1, peer 0, total 356
 vulnerabilities:          (empty)
 ```
 
-Zero advisories. `express ^4.21.2` resolved to `4.22.2`. **No CVE identifier is asserted anywhere in this document.** For the other half of the repository, see [E4b](#e4b--spa-advisory-posture-srcweb).
+Zero advisories. `express ^4.21.2` resolved to `4.22.2`. **No CVE identifier is asserted anywhere in this document.** Re-audited on **5 August 2026**: every field above reproduced exactly, including the 356-package total and the resolved `4.22.2`. Advisory data is point-in-time, so re-run the command rather than treating the zero as durable. For the other half of the repository, see [E4b](#e4b--spa-advisory-posture-srcweb).
 
 ### E4b — SPA advisory posture (`src/web`)
 
@@ -975,7 +992,7 @@ metadata.dependencies:    prod 58, dev 776, optional 1, peer 8, total 840
 
 So removing one unused declaration eliminates **24 of the 29 advisories, including 13 of the 14 high**, and nearly halves the resolved tree (1576 → 840). That is the evidence behind [M14](#frontend-stack-currency) and [P0-4](#p0--make-it-green-and-reproducible-030-days), and the reason [R16](#risk-register) is rated the way it is.
 
-Two boundaries on this evidence. First, **no advisory identifier of any kind is reproduced here** — not a CVE, not a GHSA — in keeping with [Claims deliberately not made](#claims-deliberately-not-made); the counts above are `npm audit`'s own aggregates. Second, advisory data is **point-in-time**: these counts were observed while writing this assessment and will change as advisories are published or withdrawn, so re-run the two commands rather than citing these numbers as durable. `src/backend` was audited by the same method and reports zero ([E4](#e4--backend-advisory-posture)).
+Two boundaries on this evidence. First, **no advisory identifier of any kind is reproduced here** — not a CVE, not a GHSA — in keeping with [Claims deliberately not made](#claims-deliberately-not-made); the counts above are `npm audit`'s own aggregates. Second, advisory data is **point-in-time**: these counts were re-observed on **5 August 2026**, when every figure above reproduced exactly — the 29/9/6/14/0 mix, the 1576-package total, the three direct declarations and the whole scratch re-resolution — and they will change as advisories are published or withdrawn, so re-run the two commands rather than citing these numbers as durable. `src/backend` was audited by the same method and reports zero ([E4](#e4--backend-advisory-posture)).
 
 ### E5 — Endpoint behaviour, headers, and the `PORT` override
 
@@ -1105,7 +1122,7 @@ No `.env`, lockfile, key, certificate or credential is tracked. Supports [S13](#
 
 ```console
 $ docker build --target production -f infrastructure/docker/Dockerfile src/web
-Sending build context to Docker daemon  323.3MB
+Sending build context to Docker daemon  333.5MB
 
 Error response from daemon: target stage "production" could not be found
 ```
@@ -1118,9 +1135,9 @@ $ Select-String -Path infrastructure/docker/Dockerfile -Pattern '^FROM '
   L39: FROM nginx:alpine
 ```
 
-Second, the 323.3 MB build context proves `infrastructure/docker/.dockerignore` is never applied — Docker reads `.dockerignore` from the build-context root, which Compose sets to `src/web`, so `node_modules` was uploaded. See [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were) and [W23](#w23--the-compose-file-cannot-resolve-its-own-build-inputs).
+Second, the 333.5 MB build context proves `infrastructure/docker/.dockerignore` is never applied — Docker reads `.dockerignore` from the build-context root, which Compose sets to `src/web`, so `node_modules` was uploaded. See [W22](#w22--the-container-image-cannot-be-built-and-could-not-start-if-it-were) and [W23](#w23--the-compose-file-cannot-resolve-its-own-build-inputs).
 
-*Reproduction precondition:* that 323.3 MB was measured in a working tree where `src/web/node_modules` had been installed, which is the state any real build runs in. A checkout that has never installed dependencies sends a context roughly four thousand times smaller — the tracked content of `src/web` totals about 81 kB — so the **size** is environment-dependent and should not be treated as a fixed figure. The finding does not depend on it: `.dockerignore` sits outside the build-context root, so it is inert regardless of how large the context happens to be, and the stage-resolution failure above is reproducible in any checkout.
+*Reproduction precondition:* that 333.5 MB was measured on 5 August 2026 in a working tree where `src/web/node_modules` had been installed, which is the state any real build runs in. The figure tracks whatever is on disk at the moment of the probe and nothing else — the same command measured 323.3 MB against an earlier install of the same manifest and 322.3 MB while an install was still in flight — so the **size is environment-dependent and must not be treated as a fixed property of the repository**. A checkout that has never installed dependencies sends a context roughly four thousand times smaller: the tracked content of `src/web` is 37 files totalling 81,018 bytes, about 79 kB. The finding does not depend on the number at all: `.dockerignore` sits outside the build-context root, so it is inert regardless of how large the context happens to be, and the stage-resolution failure above is reproducible in any checkout.
 
 ### E13 — Docker Compose validation
 
@@ -1199,7 +1216,7 @@ An output named "cloudfront_distribution_id" was already defined at
 modules/static-hosting/main.tf:189,1-36. Output names must be unique within a module.
 ```
 
-Exit code 1 — **7 errors**. The same command in `environments/dev` fails with the same 5 duplicate-output errors from the shared modules. Because initialisation aborts here, the further Terraform defects listed in [W26](#w26--further-terraform-defects-behind-the-initialisation-failure-static-inspection) are reported from static inspection rather than from validator output.
+Exit code 1 — **7 errors**. The same command in `environments/dev` fails with the same 5 duplicate-output errors from the shared modules. Because initialisation aborts here, the further Terraform defects listed in [W26](#w26--further-terraform-defects-behind-the-initialisation-failure-static-inspection) are reported from static inspection rather than from validator output. Re-run on 5 August 2026 the exit code, the error count and all seven error bodies reproduced exactly; only the order of the two `Initializing modules...` lines differs between runs, which is Terraform enumerating a map and carries no meaning.
 
 ```console
 $ terraform fmt -check -recursive
@@ -1215,7 +1232,9 @@ Exit code 3 — 6 of 13 `.tf` files are not canonically formatted.
 
 ### E15 — Declared versions versus current published versions
 
-Observed with `npm view <package> version` and re-observed on **5 August 2026**, when every row below was confirmed unchanged. This is the sole source for every **npm** "target" version in [Modernization Opportunities](#modernization-opportunities); no version is asserted from memory. GitHub Actions are not npm packages, so their target versions come from the separate source recorded in [E15a](#e15a--github-actions-declared-versions-versus-current-releases) below. Both tables are point-in-time observations and should be re-run before the upgrade work is scheduled.
+Observed with `npm view <package> version` and re-observed on **5 August 2026**, when every row below was confirmed unchanged. This is the sole source for every **npm** "target" version in [Modernization Opportunities](#modernization-opportunities); no version is asserted from memory. GitHub Actions are not npm packages, so their target versions come from the separate source recorded in [E15a](#e15a--github-actions-declared-versions-versus-current-releases) below. Every table in this section and in [E15a](#e15a--github-actions-declared-versions-versus-current-releases) is a point-in-time observation and should be re-taken before the upgrade work is scheduled.
+
+**Coverage.** The two manifests declare **33** packages between them — `src/backend/package.json` declares 3 (1 dependency, 2 devDependencies) and `src/web/package.json` declares 30 (4 dependencies, 26 devDependencies). The first table below carries the **15** that findings and recommendations elsewhere in this document cite by name; the second carries the remaining **18**, so that every declared dependency of both manifests is accounted for and no gap in the table can be mistaken for a package that was not checked.
 
 | Package | Declared in this repository | Current published |
 |---|---|---|
@@ -1235,9 +1254,34 @@ Observed with `npm view <package> version` and re-observed on **5 August 2026**,
 | `fork-ts-checker-webpack-plugin` | `^7.3.0` | 9.1.0 |
 | `react-scripts` | `"5.x"` (declared, never invoked) | 5.0.1 |
 
+The remaining **18** declared packages, all of them `devDependencies` of `src/web/package.json`, observed the same way on the same date. They complete the currency picture. No **target** version in [Modernization Opportunities](#modernization-opportunities) is taken from a row below; several of these packages do appear elsewhere in this document for other reasons — `compression-webpack-plugin` and `webpack-dev-server` each carry a direct advisory in [E4b](#e4b--spa-advisory-posture-srcweb), `@types/react` and `@types/react-dom` appear in [M8](#frontend-stack-currency) as ripple that must move with React, `@typescript-eslint/parser` moves with the plugin in [M12](#frontend-stack-currency), and `jest-environment-jsdom` is part of the SPA test wiring — but in each case the recommendation is expressed against the package in the first table that drives it.
+
+| Package | Declared in `src/web` | Current published |
+|---|---|---|
+| `@babel/preset-env` | `^7.0.0` | 8.0.2 |
+| `@babel/preset-react` | `^7.0.0` | 8.0.1 |
+| `@babel/preset-typescript` | `^7.0.0` | 8.0.1 |
+| `@jest/types` | `^29.0.0` | 30.4.1 |
+| `@testing-library/jest-dom` | `^5.16.5` | 7.0.0 |
+| `@testing-library/user-event` | `^14.0.0` | 14.6.3 |
+| `@types/react` | `^18.0.27` | 19.2.18 |
+| `@types/react-dom` | `^18.0.10` | 19.2.4 |
+| `@typescript-eslint/parser` | `^5.48.2` | 8.66.0 |
+| `compression-webpack-plugin` | `^10.0.0` | 12.0.0 |
+| `eslint-config-prettier` | `^8.0.0` | 10.1.8 |
+| `eslint-plugin-react` | `^7.0.0` | 7.37.5 |
+| `eslint-plugin-react-hooks` | `^4.0.0` | 7.1.1 |
+| `html-webpack-plugin` | `^5.5.0` | 5.6.8 |
+| `jest-environment-jsdom` | `^29.0.0` | 30.4.1 |
+| `terser-webpack-plugin` | `^5.3.6` | 5.6.1 |
+| `webpack-cli` | `^5.0.1` | 7.2.2 |
+| `webpack-dev-server` | `^4.11.1` | 6.0.0 |
+
+Four of those eighteen — `@testing-library/user-event`, `eslint-plugin-react`, `html-webpack-plugin` and `terser-webpack-plugin` — have a current release that the declared caret range already admits, so an install resolves them to current today. The other fourteen are at least one major behind their declared floor. Like every row above, these are point-in-time readings.
+
 ### E15a — GitHub Actions: declared versions versus current releases
 
-**Source:** each action's own GitHub releases page, read on **5 August 2026**. These are *not* npm packages and were *not* obtained with `npm view`; the release tag marked "Latest" on the publisher's page is the authority, and the commit each tag points at is recorded so the observation is reproducible.
+**Source:** each action's own GitHub releases page — the `/releases` index linked in the last column, where exactly one tag carries the **Latest** badge — read on **5 August 2026**. These are *not* npm packages and were *not* obtained with `npm view`; the tag marked "Latest" on the publisher's page is the authority, and the commit each tag points at is recorded so the observation is reproducible. All three pages were read again at the evidence re-baseline and every cell below reconciled unchanged: same latest tag, same release date, same commit. Third-party release-tracking mirrors were **not** used as authority; one such mirror reports a different publication date for `actions/checkout@v7.0.1`, and where a mirror and the publisher disagree this table follows the publisher. Like every currency reading in this assessment, the three rows below are point-in-time and should be re-taken from the linked releases pages before the upgrade in [M7](#reproducibility-and-supply-chain) is scheduled.
 
 | Action | Pinned in this repository | Dependabot branch open | Current release | Released | Commit | Source |
 |---|---|---|---|---|---|---|
@@ -1273,26 +1317,30 @@ Two consequences follow, and both are reflected in [M7](#reproducibility-and-sup
 
 Only the two LTS lines — Node.js 22 and Node.js 24 — are supported targets today; the Node.js project's guidance on source 2 is that production applications should run an Active or Maintenance LTS release. Because these dates are published as forward-looking commitments and are explicitly subject to change, they should be re-read from sources 2 and 3 before an upgrade is scheduled rather than taken from this table.
 
+At the evidence re-baseline every row above reconciled **unchanged**, and the re-reading is recorded here source by source so that a reader can tell what was re-observed from what was carried over. Source 3's schedule was re-read and checked line by line — `16.x` Gallium `2023-09-11`, `18.x` Hydrogen `2025-04-30`, `20.x` Iron `2026-04-30`, `22.x` Jod `2027-04-30`, `24.x` Krypton `2028-04-30` — and source 1 was re-read and still gives the reason for the first of those dates in terms, moving it "by seven months to coincide with the end of support of OpenSSL 1.1.1". Source 4's substance also still holds: the existing odd/even model ends with Node.js 26, and from Node.js 27 every major becomes LTS. The **Status** column was re-derived from source 3's dates against the observation date rather than re-read from source 2's rendered table, which is why Node.js 20 now reads End of life. Source 5 is cited only as independent vendor corroboration of a date that sources 1 and 3 each give first-hand; it was **not** re-fetched at the re-baseline, and no row in this section depends on it alone. The elapsed-time figure derived from the Node.js 16 date in [W4](#w4--the-declared-runtime-has-been-out-of-support-for-nearly-three-years-and-diverges-from-the-runtime-actually-used) was recomputed against the observation date rather than carried over, and remains **1,059 days** (366 + 365 + 328). Anyone re-dating this document must recompute it the same way, because it is the one figure here that changes every day even when every source is untouched.
+
 The upgrade requirements attributed to Express and Jest in [Modernization Opportunities](#modernization-opportunities) come from those projects' own published guides, not from inference:
 
 | Authority | Requirement stated there |
 |---|---|
 | Express — [*Migrating to Express 5*](https://expressjs.com/en/guide/migrating-5.html) | Express 5 requires **Node.js 18 or later** |
-| Jest — [*Upgrading from Jest 29 to 30*](https://jestjs.io/docs/upgrading-to-jest30) | Jest 30 requires **Node.js 18+** and **TypeScript 5.4+** |
+| Jest — [*Upgrading from Jest 29 to 30*](https://jestjs.io/docs/upgrading-to-jest30) | Jest 30 requires **Node.js 18+** and **TypeScript 5.4+**, and states that Jest 30 drops support for Node 16 outright |
+
+Both guides were re-read at the evidence re-baseline and both requirements are unchanged. They are cited because they are the reason the two upgrades in [Modernization Opportunities](#modernization-opportunities) are *ordered* rather than independent: the runtime move has to land first, which is why the roadmap sequences it as step P1-1 and places the two framework upgrades behind it at step P2-3 in the [Recommended Next Steps](#recommended-next-steps).
 
 #### Non-npm artefacts and how each was sourced
 
-Two classes of currency fact in this assessment concern artefacts that are **not** npm packages, so `npm view` — the mechanism [E15](#e15--declared-versions-versus-current-published-versions) uses and honesty rule #2 names for npm versions — cannot reach them. Each was read directly from the publisher's own page on **5 August 2026**; none is inferred from the Dependabot branch names in [E17](#e17--unmerged-dependabot-branches), which record only what Dependabot has proposed so far and not what is current. The three GitHub Actions rows below restate the readings tabulated in [E15a](#e15a--github-actions-declared-versions-versus-current-releases), which also records each release's date and the commit its tag points at; the two Terraform provider rows appear only here.
+Two classes of currency fact in this assessment concern artefacts that are **not** npm packages, so `npm view` — the mechanism [E15](#e15--declared-versions-versus-current-published-versions) uses and honesty rule #2 names for npm versions — cannot reach them. Each was obtained on **5 August 2026** from the publisher itself, by the mechanism named per row, and none is inferred from the Dependabot branch names in [E17](#e17--unmerged-dependabot-branches), which record only what Dependabot has proposed so far and not what is current. The three GitHub Actions rows below restate the readings tabulated in [E15a](#e15a--github-actions-declared-versions-versus-current-releases), which also records each release's date and the commit its tag points at; the two Terraform provider rows appear only here.
 
-| Artefact | Pinned in this repository | Current release, as read from the publisher | Source page read |
+| Artefact | Pinned in this repository | Current release, as obtained from the publisher | Source, and how it was obtained |
 |---|---|---|---|
-| `actions/checkout` | `@v3` — `build.yml` L35, `test.yml` L28, `deploy.yml` L39 | **v7.0.1**, major **7** (the v4 line remains maintained, its head being v4.4.0) | `github.com/actions/checkout/releases/latest` |
-| `actions/setup-node` | `@v3` — `build.yml` L40, `test.yml` L33, `deploy.yml` L45 | **v7.0.0**, major **7** | `github.com/actions/setup-node/releases/latest` |
-| `actions/deploy-pages` | `@v2` — `deploy.yml` L67 | **v5.0.0**, major **5** | `github.com/actions/deploy-pages/releases/latest` |
-| Terraform AWS provider | `~> 4.0` — `versions.tf` L15 | **6.57.1**, major **6** | `registry.terraform.io/providers/hashicorp/aws/latest` |
-| Terraform Cloudflare provider | `~> 3.0` — `versions.tf` L21 | **5.22.0**, major **5** | `registry.terraform.io/providers/cloudflare/cloudflare/latest` |
+| `actions/checkout` | `@v3` — `build.yml` L35, `test.yml` L28, `deploy.yml` L39 | **v7.0.1**, major **7** (the v4 line remains maintained, its head being v4.4.0) | `github.com/actions/checkout/releases` — read the page, took the tag badged **Latest** |
+| `actions/setup-node` | `@v3` — `build.yml` L40, `test.yml` L33, `deploy.yml` L45 | **v7.0.0**, major **7** | `github.com/actions/setup-node/releases` — read the page, took the tag badged **Latest** |
+| `actions/deploy-pages` | `@v2` — `deploy.yml` L67 | **v5.0.0**, major **5** | `github.com/actions/deploy-pages/releases` — read the page, took the tag badged **Latest** |
+| Terraform AWS provider | `~> 4.0` — `versions.tf` L15 | **6.58.0**, major **6** | `registry.terraform.io/providers/hashicorp/aws/latest` — resolved from the public registry by `terraform init` against an unconstrained `required_providers` block in a throwaway configuration outside this repository, which logged `- Installing hashicorp/aws v6.58.0` |
+| Terraform Cloudflare provider | `~> 3.0` — `versions.tf` L21 | **5.23.0**, major **5** | `registry.terraform.io/providers/cloudflare/cloudflare/latest` — resolved the same way, logging `- Installing cloudflare/cloudflare v5.23.0` |
 
-These five readings are point-in-time: patch and minor numbers move continuously, so re-read the same pages before acting on [M7](#reproducibility-and-supply-chain) or [M26](#delivery-pipeline-and-infrastructure). The **majors** are the durable part, and they are what [M7](#reproducibility-and-supply-chain), [P0-10](#p0--make-it-green-and-reproducible-030-days) and [R14](#risk-register) rest on. Container base images are the third non-npm class in this repository; no currency *number* is claimed for `node:16-alpine` anywhere in this document — the finding against it is the Node.js 16 end-of-life date above, which is sourced from the Node.js project itself.
+These five readings are point-in-time: patch and minor numbers move continuously, so re-obtain them the same way before acting on [M7](#reproducibility-and-supply-chain) or [M26](#delivery-pipeline-and-infrastructure). This document has already watched that happen. At the evidence re-baseline both Terraform rows had moved on by one minor — the AWS provider from 6.57.1 to **6.58.0** and the Cloudflare provider from 5.22.0 to **5.23.0** — while the three Actions rows and, decisively, all five **majors** were unchanged. The majors are the durable part, and they are what [M7](#reproducibility-and-supply-chain), [P0-10](#p0--make-it-green-and-reproducible-030-days) and [R14](#risk-register) rest on: a repository pinning the AWS provider at `~> 4.0` is four majors behind whether the registry head reads 6.57.1 or 6.58.0. Container base images are the third non-npm class in this repository; no currency *number* is claimed for `node:16-alpine` anywhere in this document — the finding against it is the Node.js 16 end-of-life date above, which is sourced from the Node.js project itself.
 
 ### E17 — Unmerged Dependabot branches
 
@@ -1315,6 +1363,8 @@ $ git branch -a
 
 *Reproduction precondition:* `git branch -a` lists only the refs the local clone has actually fetched, so this output requires remote-tracking refs from the upstream repository where Dependabot opens its branches. A clone whose `origin` is another local checkout carrying only the working branches shows **no** `dependabot/**` refs at all — `git ls-remote --heads origin` is the quickest way to tell which case you are in. Where the refs are unreachable, the branch list can be neither reproduced nor refuted locally; [W33](#w33--eight-dependency-update-branches-are-open-and-unmerged) then has to be read against the repository's own branch list on the hosting platform.
 
+*Carried forward.* At the re-validation commit the checkout was in exactly that second case: `git ls-remote --heads origin` returned only two heads — the working branch and `main` — and no `dependabot/**` ref was present, so this transcript could **not** be re-executed on 5 August 2026. It is therefore **carried forward from the original observation** and labelled *static inspection*, and it is the only claim in this document for which that is true; every other command in [What was executed](#what-was-executed) was re-run against the current tree. Confirm the count against the hosting platform's own branch list before acting on [W33](#w33--eight-dependency-update-branches-are-open-and-unmerged), [R9](#risk-register) or [P0-10](#p0--make-it-green-and-reproducible-030-days).
+
 ### E18 — Empty pull request template
 
 ```console
@@ -1329,7 +1379,7 @@ Zero bytes both on disk and in git history.
 
 ### E19 — Cited file and line index
 
-Every path below is repository-relative. Line numbers refer to the assessed commit `dcc5b7f`, except root `README.md` citations below the new pointer section, which are given as committed — see **Line references** in [Scope and Method](#scope-and-method).
+Every path below is repository-relative. Line numbers refer to the re-validation commit `47c6508`, and every row in this index was re-checked against that tree on 5 August 2026: each cited file still exists and no cited line number exceeds its file's length. Root `README.md` citations are given at their committed numbers, with the pointer section in place — see **Line references** in [Scope and Method](#scope-and-method). Of the three files that differ between the originally assessed `dcc5b7f` and `47c6508`, two appear in this index: root `README.md`, whose citations are given at their post-insertion numbers and were each re-verified line by line, and the platform-regenerated `blitzy/documentation/Project Guide.md`, which for exactly that reason is now cited by identity rather than by an interior line range. No other row was affected by the move.
 
 | Path | Lines cited | What is cited there |
 |---|---|---|
@@ -1389,7 +1439,7 @@ Every path below is repository-relative. Line numbers refer to the assessed comm
 | `documentation/Technical Specifications.md` | L300, L302–L304, L377–L379, L488–L494, L701, L707, L709 | Database and API "not applicable" assertions; third-party services; authentication table |
 | `documentation/Product Requirements Document (PRD).md` | L136–L142, L163, L194 | Performance targets; availability target; accessibility requirement |
 | `documentation/Project Guide.md` | L1, L3, L12, L18–L28, L82–L93, L94 | Leaked generator prompt; stray fence; WCAG claim; point-in-time status; the eight pending human inputs |
-| `blitzy/documentation/Project Guide.md` | L1, L7–L229 | The second, unrelated guide of the same filename |
+| `blitzy/documentation/Project Guide.md` | cited by identity, not by line — a platform-generated artefact rewritten on every run (708 lines / 61755 bytes as measured 5 August 2026; its own L1 title and L3–L4 provenance block are the only parts referenced) | The second guide of the same filename, and the fact that it is regenerated rather than maintained |
 
 ### E20 — SPA development runtime: `npm start`, the CSP conflict, and the rendered page
 
@@ -1442,7 +1492,7 @@ The `securitypolicyviolation` event captured before any page script ran: `violat
 | `document.body.outerHTML.length` | **274** — byte-for-byte the served template |
 | `typeof window.React` / `__REACT_DEVTOOLS_GLOBAL_HOOK__` | `"undefined"` / undefined |
 | Pixels in the full-page capture | **1,024,000 of 1,024,000 pure white** |
-| `"Hello World"` present anywhere in the DOM | **false** |
+| `"Hello World"` present anywhere in `<body>`, rendered or otherwise | **false** — the string does occur twice in the *served* `<head>`, in the meta description and in `<title>` (which is why `document.title` is `"Hello World"`), but the whole of `body.outerHTML` is the 274-character served template measured three rows above, and it contains no occurrence of the string. Nothing rendered it. |
 | `TypeError` anywhere in the console | **false** |
 | `Cannot read properties of undefined` anywhere in the console | **false** |
 | `console.*` calls made by application code | **0** |
@@ -1450,7 +1500,9 @@ The `securitypolicyviolation` event captured before any page script ran: `violat
 
 **5. Asset delivery was not the problem.** `runtime.js`, `main.js` and all four `vendors-*.js` chunks returned **HTTP 200** (≈3.7 MB in ≈80 ms). The only failures were four **400**s on unsubstituted `%PUBLIC_URL%` paths (`/static/js/bundle.js`, `/manifest.json` twice, `/favicon.ico`), which webpack-dev-server's Express router rejects with `URIError: Failed to decode param` because `%PU` is a malformed percent-escape — an independent runtime confirmation of the `%PUBLIC_URL%` and hardcoded-`bundle.js` rows in [W32](#w32--configuration-files-carry-deprecated-or-inert-settings), and not a cause of the blank page. Chrome also emitted `X-Frame-Options may only be set via an HTTP header sent along with a document. It may not be set inside <meta>.`, confirming the same finding's meta-header row from the browser's own mouth.
 
-**6. Determinism.** Three independent loads produced byte-identical screenshots (same SHA-256, zero differing pixel bytes), the same 10 console messages in the same order, the same single CSP violation and the same network results. The failure is not intermittent.
+**6. Determinism.** The failure is not intermittent, and re-running the whole observation on 5 August 2026 established precisely which parts of it are deterministic and which are not. Across four loads — one cold load plus three instrumented reloads — every *outcome* was identical: byte-identical full-page screenshots (one SHA-256 across all three, a single distinct colour, 1,024,000 of 1,024,000 pixels white), the same 10 console messages as a set (9 errors and 1 DevTools issue), the `Uncaught EvalError`'s stack trace byte-for-byte, exactly one `securitypolicyviolation` with the same seven field values, every probe in the table above, the same eleven-request network composition, the same four `%PUBLIC_URL%` 400s and the same zero WebSocket connections.
+
+Two things are **not** deterministic, and neither changes the outcome. The **order** of the console messages varies: the CSP issue and the `EvalError` surface at positions two and three when the six JavaScript chunks are served `304` from cache and at positions six and seven when they are served `200` with full bodies, because a cached bundle begins executing before the in-flight `%PUBLIC_URL%` 400 responses land. The chunks' status codes therefore vary between `200` and `304` across reloads, as does wall-clock load time. The earlier statement that the messages appear "in the same order" was too strong and has been narrowed to what four loads actually showed.
 
 ### E21 — Coverage thresholds and the `validate` short-circuit
 
@@ -1485,7 +1537,7 @@ Enterprise assessments fail most often by asserting a plausible finding that tur
 | "There are no coverage thresholds." | False as a blanket statement: `src/web/jest.config.ts` L28–L35 declares 100 % global thresholds. | [W11](#w11--coverage-is-either-unenforceable-or-absent) states that the SPA declares thresholds that are evaluated on every `npm test` and always fail at 0 %, and that `src/backend` declares no coverage configuration at all. |
 | "The SPA's coverage thresholds are never evaluated." | The repository's own `test` script carries `--coverage` (`src/web/package.json` L12) and Jest collects coverage from `collectCoverageFrom` independently of suite execution, so all four thresholds are checked and reported on every run. | [W11](#w11--coverage-is-either-unenforceable-or-absent) claims that they can never be **met**, quoting the four `not met: 0%` lines, with the transcript in [E21](#e21--coverage-thresholds-and-the-validate-short-circuit). |
 | "`documentation/Technical Specifications.md` §5.1.1 asserts the project has no backend." | The actual §5.1.1 (heading at L439) is "Layout Structure". | [W29](#w29--the-technical-specification-still-asserts-the-project-has-no-api) cites the lines that do carry the assertion: §3.3 at L304, §5.3 at L494 and §4.4 at L379. |
-| "The two `Project Guide.md` files are duplicates." | Their hashes differ; they are 94 lines / 3362 bytes and 385 lines / 23771 bytes and cover different subjects. | [W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt) describes them as two different documents sharing one filename with no cross-reference. |
+| "The two `Project Guide.md` files are duplicates." | Their hashes differ, they cover different subjects, and their sizes differ by an order of magnitude: `documentation/Project Guide.md` is 94 lines / 3362 bytes, while the platform-generated `blitzy/documentation/Project Guide.md` measured 708 lines / 61755 bytes on 5 August 2026 — a figure that changes whenever the platform regenerates it. | [W30](#w30--two-documents-named-project-guidemd-disagree-and-one-of-them-leaks-its-own-generator-prompt) describes them as two different documents sharing one filename with no cross-reference, and cites the generated one by identity rather than by size or line. |
 | "The blank page is caused by the missing `ThemeProvider`." | The page *was* rendered and is verifiably blank, but no theme error fires: the entry chunk never executes, so nothing reaches the render path. The console contains no `TypeError` and no "Cannot read properties of undefined". | [W35](#w35--the-pages-own-content-security-policy-kills-the-development-bundle-before-react-executes) records the Content-Security-Policy / `eval-source-map` conflict as the operative cause, and [W9](#w9--no-themeprovider-wraps-the-tree-so-the-spas-first-render-is-primed-to-throw) records the `ThemeProvider` omission as a real but latent defect behind it ([E20](#e20--spa-development-runtime-npm-start-the-csp-conflict-and-the-rendered-page)). |
 | "The blank page reproduces with the repository's own commands." | It does not: no shipped script can load `webpack.config.ts`, so the page could only be observed after forcing the dev server up with two read-only environment variables and `--env mode=development`. | [W34](#w34--npm-start-does-not-start-the-dev-server-cannot-load-its-own-configuration) records that `npm start` fails outright, and [E20](#e20--spa-development-runtime-npm-start-the-csp-conflict-and-the-rendered-page) discloses the exact non-standard invocation used. |
 | "The first theme error would originate in `GlobalStyles.ts` L20 because `App.tsx` renders it before `HelloWorld`." | Element order does not decide it, and it cannot be observed while the bundle never executes. In styled-components 5.3.11 a styled component evaluates its interpolations during render, while `createGlobalStyle` defers `renderStyles` to a layout effect on the client — so the later-rendered component may throw first. | [W9](#w9--no-themeprovider-wraps-the-tree-so-the-spas-first-render-is-primed-to-throw) names **both** unguarded files and asserts only that the provider fix must cover both, which is all the remediation needs. |
@@ -1501,12 +1553,14 @@ Enterprise assessments fail most often by asserting a plausible finding that tur
 |---|---|
 | Document | `documentation/Enterprise Adoption Readiness Assessment.md` |
 | Repository branch | `blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc` |
-| Commit assessed | `dcc5b7f4adc7791b09c527284d0d849c993e5a03` |
-| Tracked files at that commit | 80 |
+| Commit assessed | `47c6508a3576d89bf89edbb93e0ef307ac758019` (short `47c6508`) |
+| Tracked files at that commit | 81 |
+| Originally authored against | `dcc5b7f4adc7791b09c527284d0d849c993e5a03` (short `dcc5b7f`), when the count was 80 tracked files |
+| Re-baselined and re-validated | 5 August 2026, against `47c6508` — every command in [What was executed](#what-was-executed) re-run against the current tree; see the **Baseline and re-validation** and **Revision 2** notes in [Scope and Method](#scope-and-method) |
 | Assessment host runtime | Node v22.23.2, npm 10.9.8 |
 | Tools used | git, npm, Node.js, TypeScript (`tsc`), ESLint, Jest, webpack / webpack-dev-server 5.109.2, Google Chrome, Docker 29.7.1, Docker Compose, Terraform 1.15.8 |
 | Nature of this document | Read-only assessment. No finding was remediated; no functional file was modified. |
-| Findings recorded | 14 strengths, 35 weaknesses, 16 risks, 27 modernization opportunities, 38 recommended steps across three waves |
+| Findings recorded | 14 strengths, 35 weaknesses, 16 risks, 27 modernization opportunities, 39 recommended steps across three waves |
 
 ---
 
