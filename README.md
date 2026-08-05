@@ -156,7 +156,7 @@ See [`src/backend/README.md`](src/backend/README.md) for full backend details.
 
 ## Enterprise Adoption Readiness
 
-An enterprise-adoption readiness assessment of this repository is maintained alongside the other project documents, covering strengths, weaknesses, risks, modernization opportunities and recommended next steps. It is an assessment only: it records findings and recommendations against a specific commit and applies no remediation.
+An evidence-based enterprise-adoption readiness assessment of this repository is maintained alongside the other project documents, covering strengths, weaknesses, risks, modernization opportunities and recommended next steps. Every claim in it is backed by a file-and-line citation or by captured command output. It is an assessment only: it records findings and recommendations against a specific commit, changes no application code, dependency version, configuration or infrastructure definition, and applies no remediation. Every improvement it describes, including the runtime, framework and tooling upgrades, is a recommendation for future work rather than a change already applied here.
 
 See [Enterprise Adoption Readiness Assessment](documentation/Enterprise%20Adoption%20Readiness%20Assessment.md).
 
