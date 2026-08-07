@@ -1,9 +1,7 @@
 /**
- * @fileoverview Test suite for the isTheme type guard exported by the theme module.
- * Pins down the guard's accept path, both of its early-rejection paths, each of the
- * three structural-rejection branches of its short-circuiting conjunction, and its
- * observable behaviour when a property access throws, achieving full statement and
- * branch coverage of the guard.
+ * @fileoverview Unit tests for the isTheme type guard exported by the theme module.
+ * Covers acceptance of a valid theme, early and structural rejection, and behavior
+ * when a property access throws.
  *
  * @version 1.0.0
  * @requires jest ^27.5.1
@@ -14,9 +12,6 @@ import { defaultTheme, isTheme } from './theme';
 describe('isTheme', () => {
   describe('Happy Path', () => {
     it('returns true for the shipped defaultTheme', () => {
-      // The real exported token object is used rather than a hand-authored literal,
-      // so this case doubles as a regression guard that the shipped theme continues
-      // to satisfy its own type guard.
       expect(isTheme(defaultTheme)).toBe(true);
     });
   });
@@ -78,10 +73,7 @@ describe('isTheme', () => {
         enumerable: true,
       });
 
-      // `colors` is not an object, so the conjunction short-circuits before
-      // `typography` is ever read: the hostile getter never runs and the caller
-      // genuinely receives `false`. This proves the short-circuit is load-bearing
-      // and does shield callers from a hostile object.
+      // The invalid colors value short-circuits before the later hostile getter is evaluated.
       expect(isTheme(guarded)).toBe(false);
     });
   });
