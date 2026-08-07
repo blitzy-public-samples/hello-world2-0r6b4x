@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import 'jest-environment-jsdom';
 
 // Import custom test utilities
-import { renderWithProviders } from '../utils/testUtils';
+import { renderWithProviders } from './utils/testUtils';
 
 /**
  * Extend the global expect interface with DOM-specific matchers
