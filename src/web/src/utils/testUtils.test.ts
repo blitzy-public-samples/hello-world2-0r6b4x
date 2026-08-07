@@ -18,8 +18,7 @@ import { renderWithProviders } from './testUtils';
 // Elements are built with `createElement` because this `.ts` suite cannot contain JSX.
 const Ok: FC = () => React.createElement('span', { 'data-testid': 'ok' }, 'ok');
 
-const Next: FC = () =>
-  React.createElement('span', { 'data-testid': 'next' }, 'next');
+const Next: FC = () => React.createElement('span', { 'data-testid': 'next' }, 'next');
 
 const Exploding: FC = () => {
   throw new Error('component exploded during render');
@@ -31,9 +30,7 @@ describe('renderWithProviders', () => {
   let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -42,9 +39,7 @@ describe('renderWithProviders', () => {
 
   describe('Rendering', () => {
     it('renders the supplied element inside the theme providers', () => {
-      const { getByTestId, container } = renderWithProviders(
-        React.createElement(Ok)
-      );
+      const { getByTestId, container } = renderWithProviders(React.createElement(Ok));
 
       expect(getByTestId('ok')).toBeInTheDocument();
       expect(container.innerHTML).toContain('data-testid="ok"');
@@ -69,7 +64,7 @@ describe('renderWithProviders', () => {
       const host = document.createElement('div');
 
       const { container } = renderWithProviders(React.createElement(Ok), {
-        container: host
+        container: host,
       });
 
       // Referential identity, not equivalence: the helper spreads `...options`
