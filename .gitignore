@@ -87,6 +87,7 @@ storybook-static/
 # Package Managers
 yarn.lock
 package-lock.json
+!src/web/package-lock.json
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
