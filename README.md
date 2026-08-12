@@ -124,6 +124,42 @@ hello-world-react-typescript/
 | `npm run lint` | Run ESLint code analysis |
 | `npm run type-check` | Run TypeScript compiler checks |
 
+## Backend (Express)
+
+A minimal [Express.js](https://expressjs.com/) server, added as a sibling package at `src/backend/`. It exposes two plain-text HTTP endpoints and runs as an independent Node process with no code-level coupling to the React application under `src/web/`.
+
+### Endpoints
+
+| Method | Path | Response |
+|---------|------|----------|
+| `GET` | `/` | `Hello world` |
+| `GET` | `/good-evening` | `Good evening` |
+
+### Install & Run
+
+```bash
+cd src/backend
+npm install
+npm start
+```
+
+The server listens on port `3001` by default, overridable via the `PORT` environment variable (`process.env.PORT || 3001`). Port `3001` is used to avoid the frontend webpack dev server, which runs on port `3000`.
+
+### Verify
+
+```bash
+curl http://localhost:3001/            # -> Hello world
+curl http://localhost:3001/good-evening # -> Good evening
+```
+
+See [`src/backend/README.md`](src/backend/README.md) for full backend details.
+
+## Enterprise Adoption Readiness
+
+An evidence-based enterprise-adoption readiness assessment of this repository is maintained alongside the other project documents, covering strengths, weaknesses, risks, modernization opportunities and recommended next steps. Its findings are evidenced rather than asserted: claims about this repository are backed by a file-and-line citation or by captured command output, and claims about the world outside it — runtime support lifecycles, currently published package and action versions, framework upgrade requirements — are backed by links to the authoritative source, each recorded with the date it was observed and flagged as a point-in-time observation that should be re-checked before it is acted upon. It is an assessment only: it records findings and recommendations against a specific commit, changes no application code, dependency version, configuration or infrastructure definition, and applies no remediation. Every improvement it describes, including the runtime, framework and tooling upgrades, is a recommendation for future work rather than a change already applied here.
+
+See [Enterprise Adoption Readiness Assessment](documentation/Enterprise%20Adoption%20Readiness%20Assessment.md).
+
 ## Development Guidelines
 
 ### Code Style

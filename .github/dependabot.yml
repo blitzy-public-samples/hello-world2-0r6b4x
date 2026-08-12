@@ -46,3 +46,20 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+
+  # Backend npm dependencies configuration
+  - package-ecosystem: "npm"
+    directory: "/src/backend"
+    schedule:
+      interval: "weekly"
+    # Allow both production and development dependencies
+    allow:
+      - dependency-type: "production"
+      - dependency-type: "development"
+    versioning-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "npm"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
