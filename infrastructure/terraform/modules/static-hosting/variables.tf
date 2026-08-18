@@ -48,4 +48,9 @@ variable "web_acl_arn" {
   type        = string
   description = "ARN of the CLOUDFRONT-scope AWS WAFv2 web ACL to associate with the CloudFront distribution. Null leaves the distribution unassociated."
   default     = null
+
+  validation {
+    condition     = var.web_acl_arn == null || can(regex("^arn:aws[a-zA-Z-]*:wafv2:us-east-1:[0-9]{12}:global/webacl/", var.web_acl_arn))
+    error_message = "Web ACL ARN must be null or a CLOUDFRONT-scope AWS WAFv2 web ACL ARN in us-east-1."
+  }
 }
