@@ -51,6 +51,9 @@ module "static_hosting" {
   enable_versioning = true
   enable_logging    = true
 
+  # Associate the CloudFront distribution with the environment-owned WAF web ACL
+  web_acl_arn = var.web_acl_arn
+
   # Pass common tags to the module
   tags = local.common_tags
 }
