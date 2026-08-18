@@ -108,7 +108,7 @@ resource "aws_cloudfront_distribution" "main" {
   default_root_object = "index.html"
   aliases            = [var.domain_name]
   price_class        = "PriceClass_100"
-  web_acl_id = var.web_acl_arn
+  web_acl_id          = var.web_acl_arn
 
   origin {
     domain_name = aws_s3_bucket.main.bucket_regional_domain_name

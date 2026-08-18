@@ -63,7 +63,6 @@ module "root" {
   enable_backups    = true
   enable_logging    = true
 
-  # Associate the existing production WAF web ACL with the CloudFront distribution
   web_acl_arn = aws_wafv2_web_acl.main.arn
 
   # Additional production-specific configurations
