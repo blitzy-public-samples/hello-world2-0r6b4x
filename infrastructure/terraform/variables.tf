@@ -44,7 +44,7 @@ variable "domain_name" {
   }
 }
 
-# WAF web ACL ARN for CloudFront association
+# WAF web ACL ARN input: environments pass a post-apply resource reference, not a tfvars literal
 variable "web_acl_arn" {
   description = "ARN of the CLOUDFRONT-scope AWS WAFv2 web ACL to associate with the static-hosting CloudFront distribution. Defaults to null so callers that do not supply one are unaffected."
   type        = string
