@@ -1,756 +1,521 @@
-# Blitzy Project Guide
-## Express.js Backend — `Hello world` and `Good evening` Endpoints
+# 1. Executive Summary
 
-| | |
-|---|---|
-| **Repository** | `blitzy-public-samples/hello-world2-0r6b4x` |
-| **Branch** | `blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc` |
-| **HEAD** | `c134618e47ff060fa0e37e24e46eaf52341284ba` |
-| **Baseline (last human commit)** | `da0d24d` |
-| **Guide scope** | Agent Action Plan §0 — "Add Express.js and a `Good evening` endpoint" |
+## 1.1 Project Overview
 
----
+The production CloudFront distribution serving the Hello World React static site had no AWS WAF web ACL in front of it, so viewer requests reached the public edge unfiltered. A CLOUDFRONT-scope WAFv2 web ACL carrying the AWS Common Rule Set already existed in the production root but was never referenced. This change wires that ACL's ARN through the production root, the shared root module and the static-hosting module into the distribution's native `web_acl_id` field — closing tfsec/Trivy AVD-AWS-0011, Checkov CKV_AWS_68 and AWS Security Hub CloudFront.6 for that distribution, while leaving the ACL's rule policy and every other distribution setting untouched.
 
-## 1. Executive Summary
-
-### 1.1 Project Overview
-
-This project adds the repository's first server-side runtime plane. The user asked to introduce Express.js and expose a second endpoint returning `Good evening`; investigation showed the repository is actually a client-side React 18.2.0 + TypeScript 4.9.5 single-page application with no HTTP server anywhere, so the recalled `Hello world` was React-rendered DOM content rather than an endpoint. Blitzy honored the intent by creating a minimal Express backend at `src/backend/` that serves **both** responses — `GET /` → `Hello world` and `GET /good-evening` → `Good evening` — as an independent Node process with zero code-level coupling to the SPA, which remains byte-for-byte unchanged. Target consumers are HTTP clients and developers following the tutorial.
-
-### 1.2 Completion Status
+## 1.2 Completion Status
 
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"pie1":"#5B39F3","pie2":"#FFFFFF","pieStrokeColor":"#B23AF2","pieStrokeWidth":"2px","pieOuterStrokeColor":"#B23AF2","pieOuterStrokeWidth":"2px","pieSectionTextColor":"#FFFFFF","pieTitleTextSize":"15px","pieLegendTextSize":"13px"}}}%%
-pie showData title 60.0% Complete — 30.0 h of 50.0 h
-    "Completed Work (AI)" : 30
-    "Remaining Work" : 20
+%%{init: {"themeVariables": {"pie1": "#5B39F3", "pie2": "#FFFFFF", "pieStrokeColor": "#B23AF2", "pieStrokeWidth": "2px", "pieOuterStrokeColor": "#B23AF2", "pieTitleTextSize": "16px", "pieSectionTextSize": "14px"}}}%%
+pie showData title Project Completion — 48.7% Complete
+    "Completed Work (h)" : 18.5
+    "Remaining Work (h)" : 19.5
 ```
-
-*Legend — **Completed = Dark Blue `#5B39F3`** · **Remaining = White `#FFFFFF`** (Blitzy brand colors).*
 
 | Metric | Value |
 |---|---|
-| **Total Hours** | **50.0 h** |
-| **Completed Hours (AI + Manual)** | **30.0 h** (AI 30.0 h + Manual 0.0 h) |
-| **Remaining Hours** | **20.0 h** |
-| **Percent Complete** | **60.0 %** |
+| **Total Hours** | **38.0** |
+| Completed Hours (AI 18.5 + Manual 0.0) | 18.5 |
+| Remaining Hours | 19.5 |
+| **Percent Complete** | **48.7%** |
 
-**Calculation (PA1, AAP-scoped):**
+18.5 ÷ (18.5 + 19.5) × 100 = **48.7%**. The implementation is complete and statically verified. What remains is deployment-stage acceptance, which needs an authenticated AWS context, plus the pre-existing repairs without which this stack cannot be initialised or applied.
 
-```
-Completion % = Completed Hours / (Completed Hours + Remaining Hours) × 100
-             = 30.0 h / (30.0 h + 20.0 h) × 100
-             = 30.0 h / 50.0 h × 100
-             = 60.0 %
-```
+## 1.3 Key Accomplishments
 
-**Requirement-level view.** All **22 of 22** AAP-specified requirements are **COMPLETED** — 0 partially completed, 0 not started. Every one of the residual **20.0 h** is *path-to-production* work that the AAP itself deferred to §0.6.2 (CI wiring, deployment of a long-lived Node process, operational hardening, runtime upgrade). In other words: **100 % of the requested functional scope is delivered and validated; 60.0 % of the total hours needed to reach production are complete.**
+- ✅ The production distribution now carries a web ACL via `web_acl_id` (`modules/static-hosting/main.tf:111`).
+- ✅ Closed on merit — tfsec reports `passed 1`, exit 0, with no suppression directive in the tree.
+- ✅ One deterministic ARN path across three module boundaries, using `.arn`, with no association resource.
+- ✅ The existing ACL is byte-for-byte unchanged: CLOUDFRONT scope, default allow, Common Rule Set, tags.
+- ✅ Every other distribution setting is byte-for-byte unchanged — origin/OAI, SPA fallback, cache, TLS, geo.
+- ✅ Both new inputs default to `null`, leaving omitted-input callers unaffected.
+- ✅ An in-place update with no replacement; rollback is one value change that retains the ACL.
+- ✅ Confined to five files (+22/−2), with clean diff hygiene and no new unformatted file.
 
-> **Scope note.** Per PA1, this percentage counts only (a) deliverables defined in the AAP and (b) path-to-production activities required to deploy them. The out-of-scope `src/web` SPA defects described in §1.4 and §6 carry **0 h** in every total in this guide, because AAP §0.6.2 excludes those files and the backend is a separate OS process with no dependency on them.
+## 1.4 Critical Unresolved Issues
 
-### 1.3 Key Accomplishments
-
-- ✅ **Express.js introduced (FR-1).** `express ^4.21.2` declared in a new `src/backend/package.json`; installed and verified as `express@4.22.2` — the 4.x line, deliberately not 5.x.
-- ✅ **`Good evening` endpoint delivered (FR-2).** `GET /good-evening` returns exactly `Good evening` — 200, hex `476f6f64206576656e696e67`, **12 bytes**, no trailing newline, whitespace or BOM.
-- ✅ **`Hello world` preserved (FR-3).** `GET /` returns exactly `Hello world` — 200, hex `48656c6c6f20776f726c64`, **11 bytes**, using the prompt's lowercase `w`.
-- ✅ **All 7 planned files delivered** — required (G1), recommended (G2), *and* both optional groups (G3 tests, G4 integration updates). Nothing in the execution plan was skipped.
-- ✅ **100 % test pass rate.** Jest 29.7.0 + Supertest 7.2.2 → `Tests: 2 passed, 2 total`, reproduced across **5 independent runs** with `--detectOpenHandles` clean.
-- ✅ **Exact-string fidelity empirically proven, not assumed.** A 7/7 negative control confirms the suite rejects `Hello World`, `Hello world ` (one trailing space), `Good Evening` and cross-route bodies.
-- ✅ **Zero vulnerabilities.** Clean-slate `npm install` → 355 packages, exit 0; `npm audit` → **0 vulnerabilities**.
-- ✅ **Zero lint findings.** ESLint (`eslint:recommended` + 12 strict rules) at `--no-fix --max-warnings 0` → **0 problems**.
-- ✅ **Security hardening applied.** `app.disable('x-powered-by')` removes the framework fingerprint; absence confirmed four independent ways in a real browser.
-- ✅ **Port hygiene honored.** Binds `process.env.PORT || 3001`, never the SPA dev server's 3000; override proven live on 4000 and 4100.
-- ✅ **Zero regression to the SPA, proven not argued.** All 37 tracked `src/web` files byte-identical by SHA256; baseline rebuilt via `git archive` and A/B-compared in Chrome → byte-identical screenshots (18,172 B, same SHA256) and string-for-string identical `tsc --noEmit` output.
-- ✅ **Clean supply chain and hygiene.** Zero-placeholder scan (7 files × 17 patterns) and secret scan (7 files × 9 patterns) → 0 hits each; no lockfile committed, honoring the repo-wide convention.
-
-### 1.4 Critical Unresolved Issues
-
-**In AAP scope: none.** All 22 AAP-specified requirements are complete and validated; no in-scope defect remains open.
-
-The items below are **outside AAP scope** and carry **0 h** in this guide's totals. They are disclosed because they affect any repository-wide release train even though they do not affect the new backend.
+The one reported vulnerability is closed in code. **3 of the 6 acceptance checks in scope remain unverified**, and **13 items are open in total** — grouped below with each group's exact count.
 
 | Issue | Impact | Owner | ETA |
 |---|---|---|---|
-| `src/web/webpack.config.ts:180` spreads `...config.plugins!` inside the object literal being assigned to `config` (TS2448 + TS2454) — `webpack-cli` cannot even load the config, so `npm run build` is impossible | SPA cannot be built. **No impact on the backend**, which is a separate OS process. Out of scope (AAP §0.6.2); pre-existing and human-authored | Frontend owner (separate work item) | Not scheduled — requires a new AAP |
-| `src/web/src/utils/testUtils.ts:40-77` contains JSX inside a `.ts` file (6 errors), and `src/setupTests.ts:8` imports `../utils/testUtils` instead of `./utils/testUtils` | Every SPA Jest suite dies at load. Out of scope | Frontend owner | Not scheduled |
-| `src/web/src/config/constants.ts:20,29,41` — TS1005 at `} as const;` ×3; leaked markdown prose/fences outside comments in `components/index.ts:36`, `components/HelloWorld/index.ts:39`, `utils/errorBoundary.tsx:158,162` (TS1443/TS1128) | `npx tsc --noEmit` exits 2 with **13 errors across 5 files** — independently reproduced during this assessment. Out of scope | Frontend owner | Not scheduled |
-| `src/web/src/App.tsx` render path never wraps the tree in a styled-components `ThemeProvider`, so `theme.spacing.vertical` throws and the SPA renders **blank** (the only `ThemeProvider` under `src/web/src` lives in the test-only `utils/testUtils.ts`, which is why Jest looked green while the page was empty) | SPA renders nothing in a browser. Out of scope | Frontend owner | Not scheduled |
-| 88 pre-existing ESLint errors + 4 warnings across 19 `src/web` files; 29 `npm audit` vulnerabilities in the SPA dependency tree; three unsubstituted `%PUBLIC_URL%` references in `public/index.html` | Quality/security debt confined to out-of-scope files; Dependabot `/src/web` block is already active | Frontend owner | Not scheduled |
-| **Documented deviation awaiting ratification:** `src/backend/server.js` carries one line beyond its frozen 6-line schema — `app.disable('x-powered-by');` (commit `e6580c8`) | None functionally: it is an Express *setting*, not middleware/route/logic, and byte-exact hex proofs were captured with it in place. Needs an explicit reviewer sign-off | Repo maintainer (task **H-1**) | With PR review — 1.0 h |
+| Live association unverified in AWS — no authorised principal, no applied stack, no distribution ID *(1 item)* | Correct in code but never observed in the account; production sign-off is not satisfied | Deployment Operator | 2 h after credentials |
+| Production stack cannot initialise, plan or apply — triple `required_providers`, five duplicate output definitions, non-deterministic `CreatedAt`/`Environment` tags, and a provider-4.x lifecycle argument *(4 items)* | The association cannot reach AWS until these clear; the first apply of the ACL fails outright | Cloud/Platform Engineer | 9 h |
+| No resolvable deployed hostname — the configured domain is an IANA-reserved placeholder *(1 item)* | HTTPS/HTTP and SPA deep-link behaviour cannot be observed at the edge | Deployment Operator | 1.5 h after DNS |
+| The published verification command evaluates no rule, and no CI job runs an IaC scanner *(1 item)* | A reviewer copying it would sign off unfixed code; nothing prevents this control regressing | DevOps | 2 h |
+| A second CloudFront distribution has no web ACL, and the root passes an `enable_waf` argument the CDN module never declares *(1 item)* | Repository-wide WAF coverage is not achieved and is not claimed | Security + Platform | Separate scope |
+| Residual hardening — five other scanner findings, a security-headers policy attached to nothing, and a declared Terraform floor that will not load *(3 items)* | No CSP/HSTS/frame/referrer headers at the protected edge; other findings unchanged | Security + Platform | Separate scope |
+| 69 redundant or stale comments across seven Terraform files *(1 item)* | Documentation quality only — HCL comments are inert; 19 sit in files this change had to leave alone | Maintainer decision | Separate scope |
+| The frontend does not build, has no lockfile, and its two test suites cannot run *(1 item)* | Unrelated to the association, but blocks any end-to-end delivery check | Frontend Engineer | Separate scope |
 
-### 1.5 Access Issues
+## 1.5 Access Issues
 
-**No access issues identified.** Every access path required by the AAP was exercised successfully during this assessment:
-
-| System / Resource | Type of Access | Issue Description | Resolution Status | Owner |
+| System/Resource | Type of Access | Issue Description | Resolution Status | Owner |
 |---|---|---|---|---|
-| GitHub `blitzy-public-samples/hello-world2-0r6b4x` | Git read + push | None — `git ls-remote --heads origin` exit 0, and local `HEAD` equals `origin/blitzy-e3647160-…` at `c134618`, proving the branch pushed successfully | ✅ Verified working | — |
-| npm public registry | Package download | None — `npm ping` → `PONG 156 ms`; clean-slate install resolved 355 packages, exit 0 | ✅ Verified working | — |
-| Local Node runtime | Execute | None — `node v22.23.2` / `npm 10.9.8`, both above the `engines` floor (`>=16.0.0` / `>=8.0.0`) | ✅ Verified working | — |
-| Local TCP ports 3001 / 4000 / 4100 | Bind | None — bound and released cleanly; `Get-NetTCPConnection` confirms 3000 and 3001 free | ✅ Verified working | — |
-| Third-party APIs, credentials, secrets | — | **Not applicable.** The deliverable requires no external service: the only environment reference in the entire backend is `process.env.PORT` (`server.js:7`). No API key, token or database credential exists anywhere in the 7 in-scope files (secret scan: 9 patterns × 7 files → 0 hits) | ✅ N/A by design | — |
+| AWS account (CloudFront, WAFv2) | Authenticated principal | Every AWS call exits 253 `NoCredentials`; no profile, environment credential, instance-metadata or CI role exists | Open — blocks the credentialed plan review and the live `WebACLId` assertion | Deployment Operator |
+| `hello-world-react-tfstate-prod` (S3) and `hello-world-react-tfstate-lock-prod` (DynamoDB) | Read/write on remote state and lock | Both inaccessible; the stack has never been applied, so no state or distribution exists to read | Open — required before any plan or apply | Cloud/Platform Engineer |
+| Target distribution identity | `STATIC_HOSTING_DISTRIBUTION_ID` | Unset, and not derivable without state or a credentialed listing | Open — required by the post-apply assertion | Deployment Operator |
+| Deployed edge hostname | `DOMAIN`, plus public DNS and a us-east-1 ACM certificate | Unset; the configured `hello-world.example.com` is IANA-reserved and can never resolve | Open — blocks edge behaviour checks | Deployment Operator |
+| CI/CD deployment path | Workflow with an AWS role | No workflow under `.github/workflows` runs Terraform or assumes an AWS role; `deploy.yml` targets GitHub Pages | Open — no automated deployment path exists | DevOps |
+| `src/web` dependency graph | Lockfile | None exists (excluded by `.gitignore`), so `npm ci` and `npm audit` cannot run there | Open — outside this change's scope | Frontend Engineer |
 
-### 1.6 Recommended Next Steps
+## 1.6 Recommended Next Steps
 
-1. **[High]** Review and merge the 7 in-scope files (136 added lines / 1 deletion), explicitly ratifying the `app.disable('x-powered-by')` deviation — **1.0 h** (task H-1).
-2. **[High]** Add a `/src/backend` install + test job to `.github/workflows/test.yml`; all three workflows are currently pinned to `working-directory: src/web`, so the 2/2 suite runs only when invoked by hand — **3.0 h** (task H-2). Use `npm install`, not `npm ci`, until step 5 lands.
-3. **[High]** Provision a runtime host for a long-lived Node process. `infrastructure/docker` (Dockerfile + nginx) and the Terraform `static-hosting` + `cdn` modules can only serve a static SPA build — nothing in the repository can run this server — **4.5 h** (task H-3).
-4. **[Medium]** Harden for production: add `/health`, graceful `SIGTERM` shutdown, a centralized error handler and an explicit 404 contract; decide at the same time whether helmet / CORS policy / rate limiting are adopted, since the AAP's minimalism ethos deliberately omitted them — **3.0 h** (task M-1).
-5. **[Medium]** Remediate the Node 16 EOL pin: move `engines` and the CI matrix to Node 20 LTS, re-run the suite plus byte-exact endpoint checks, and re-evaluate Express 5 (deferred solely because it needs Node 18+) — **2.5 h** (task M-3).
+1. **[High]** Repair the Terraform load defects so `environments/prod` will initialise (Section 2.2, row 1).
+2. **[High]** Stabilise the production tags and rename `days` to `noncurrent_days`, so the ACL can be created.
+3. **[High]** With an authorised principal: review the plan, apply, poll to `Deployed`, then assert the distribution's `WebACLId` equals the `hello-world-react-prod-waf` ARN.
+4. **[Medium]** Correct the published verification command to the discriminating rule id and run it in CI as a real gate.
+5. **[Medium]** Watch the ACL's metrics and sampled requests for 24–48 hours; roll back with the documented single-value change if legitimate traffic is blocked.
 
----
+# 2. Project Hours Breakdown
 
-## 2. Project Hours Breakdown
-
-### 2.1 Completed Work Detail
+## 2.1 Completed Work Detail
 
 | Component | Hours | Description |
 |---|---:|---|
-| Repository scope discovery & dependency research `[AAP §0.2]` | 2.0 | Full-tree search for server constructs (`express`, `http.createServer`, `app.listen`, `fastify`, `koa`, `hapi`) → 0 matches; reconciled the "node server" premise against a React SPA reality; npm-registry version verification and Node-compatibility analysis driving Express 4.x-over-5.x and Jest 29-over-30 |
-| `src/backend/package.json` — backend manifest `[G1a, D1–D3, R4, R7]` | 2.5 | 21-line manifest: `name`, `version 1.0.0`, `private: true`, `main`, `engines` (node `>=16.0.0`, npm `>=8.0.0`) mirroring `src/web`, `scripts.start`/`scripts.test`, `express ^4.21.2`, `jest ^29.7.0`, `supertest ^7.2.2` |
-| `src/backend/server.js` — Express bootstrap + both routes `[G1b, FR-1/2/3, R1/R5/R8]` | 2.5 | 7-line / 303-byte CommonJS entry: app creation, `disable('x-powered-by')`, `GET /` → `Hello world`, `GET /good-evening` → `Good evening`, `module.exports = app`, and a `require.main` guard so importing binds no port |
-| `src/backend/server.test.js` — Jest + Supertest suite `[G3]` | 1.5 | 2 specs under `describe('backend endpoints')` asserting status 200 and exact bodies via in-process app import (no live port) |
-| `src/backend/README.md` — backend usage documentation `[G2a]` | 1.5 | 42 lines: prerequisites, install, run, `PORT` override, endpoint table, curl verification, test instructions |
-| `src/backend/.env.example` — `PORT` override contract `[G2b]` | 0.5 | Single documented line `PORT=3001`, establishing the contract without committing a real `.env` (git-ignored) |
-| Root `README.md` — "Backend (Express)" section `[G4a]` | 1.0 | ~28 added lines: endpoint table, install/run, rationale for 3001 vs the SPA's 3000, curl verification, link to the backend README |
-| `.github/dependabot.yml` — `/src/backend` npm entry `[G4b]` | 1.0 | Third `updates` block (+18/−1): weekly schedule, production + development allow, `versioning-strategy: auto`, labels, commit-message prefix; pre-existing `/src/web` (3 groups) and `github-actions` blocks left intact |
-| Code-review remediation cycles | 2.5 | `22353c7` M1 findings (Node 16 dependency compatibility + artifact hygiene), `d320e13` F1/F2 (manifest + README aligned to the frozen engine contract), `e6580c8` security finding (`app.disable('x-powered-by')`) |
-| Dependency installation & supply-chain verification | 2.0 | `node_modules` + lockfile wiped and verified gone, then `npm install` → 355 packages, exit 0; `npm audit` → **0 vulnerabilities**; `npm ls --depth=0` clean; AAP §0.3.1 versions asserted programmatically (express 4.22.2, jest 29.7.0, supertest 7.2.2) |
-| Static analysis & manifest/config validation | 2.0 | `node --check` exit 0 on both `.js` files; strict-JSON round-trip byte-exact including field order; 14/14 Dependabot-v2 shape assertions; ESLint (`eslint:recommended` + 12 strict rules) `--no-fix --max-warnings 0` → **0 problems** (including repairing a broken `--rulesdir NUL` invocation) |
-| Automated test execution, determinism & fidelity proof | 2.0 | 2/2 passing across 5 independent runs (verbose + `--detectOpenHandles`, `npm test`, 3 × `npx jest --ci`), all exit 0, no leaked handles or timers; **7/7 negative control** proving exact-string rejection semantics |
-| HTTP runtime validation (byte-exact) | 2.5 | `npm start` → 3001; raw-socket client, **12/12 assertions**: hex `48656c6c6f20776f726c64` (11 B) and `476f6f64206576656e696e67` (12 B), `content-length` match, no BOM/newline/whitespace, `X-Powered-By` absent on all 3 paths, unknown route → 404; `PORT` override proven on 4000 **and** 4100 coexisting with 3001; clean port release |
-| Browser runtime verification (Chrome subagent) | 1.5 | PASS: DOM char codes 119 / 71 / 101 prove exact casing; `X-Powered-By` absence proven four independent ways (navigation, cache-bypassed reload, in-page `fetch` header enumeration, out-of-band HttpClient); 0 JS errors and 0 warnings |
-| Out-of-scope `src/web` zero-regression proof | 3.0 | Baseline `da0d24d` extracted read-only via `git archive`, rebuilt and Chrome A/B-compared → "identical behaviour", 7/7 data points agree, byte-identical screenshots (18,172 B, SHA256 `58A62F70…CE78`), character-identical 76-char error + 29-frame stack; baseline-vs-HEAD `tsc --noEmit` string-for-string identical; all **37** tracked files byte-identical by SHA256 |
-| Hygiene, placeholder/secret scans, commit & provenance verification | 2.0 | Zero-placeholder scan 7 files × 17 patterns → 0 hits; secret scan 7 × 9 patterns → 0 hits; git LFS pre-push/post-commit hooks exit 0; scratch directory deleted and verified gone; blob → commit durability proven for all 7 deliverables; ~394 MB of browser evidence correctly excluded from the index |
-| **TOTAL COMPLETED** | **30.0** | Discovery 2.0 + Implementation 10.5 + Review remediation 2.5 + Validation & QA 15.0 |
+| CloudFront ↔ WAF association sink | 1.0 | `web_acl_id = var.web_acl_arn` added to `aws_cloudfront_distribution.main` (`infrastructure/terraform/modules/static-hosting/main.tf:111`) — one occurrence, top-level, unconditional, formatter-canonical |
+| Static-hosting module ARN input | 0.5 | `variable "web_acl_arn"` — string, described, `default = null` (`modules/static-hosting/variables.tf:47`) |
+| Root module ARN input and forwarding | 1.0 | Root input (`infrastructure/terraform/variables.tf:48`) and the single forwarding argument into `module "static_hosting"` (`infrastructure/terraform/main.tf:55`) |
+| Production ACL ARN supply | 0.5 | `web_acl_arn = aws_wafv2_web_acl.main.arn` into `module "root"` (`environments/prod/main.tf:67`) — the ARN, not the id |
+| Control research and provider compatibility | 2.0 | Confirmed the association mechanism (native `web_acl_id`, never a separate association resource for CloudFront), that AWS provider 4.67.0 exposes it as an optional string with no `ForceNew`, and that the existing ACL's CLOUDFRONT scope and us-east-1 provider satisfy AWS's requirement — so no Terraform or provider upgrade is needed |
+| Isolated verification toolchain | 2.0 | Terraform 1.15.8, tfsec 1.28.14, AWS CLI 2.36.25, AWS provider 4.67.0 schema and a pre-seeded plugin cache, all reproducible from a clean shell |
+| Static security gate across three scanners | 2.5 | tfsec, Trivy and Checkov `CKV_AWS_68` each discriminate the vulnerable pre-change tree from the current one; a machine-checkable assertion form was produced because the originally published selector evaluates no rule |
+| Change-boundary and hygiene verification | 2.0 | Exactly five paths changed (+22/−2), all modifications; `git diff --check` clean; no new unformatted file; no suppression directive, no separate association resource, no `.tfvars` override path, no literal ARN |
+| Value-flow, input contract and backward compatibility | 3.5 | All five ARN hops traced by value with exactly one edge each; omitted / explicit-null / concrete-ARN / unknown-at-plan behaviour exercised on both inputs; the development caller and other omitted-input callers verified unaffected |
+| Behaviour preservation, in-place update and rollback | 3.0 | The distribution block minus the single new line, and the whole WAF ACL, are byte-identical to the pre-change revision; association and disassociation modelled as in-place updates changing only `web_acl_id`, with no replacement and the ACL retained |
+| Application regression baseline | 0.5 | Backend service and its Jest suite exercised as an unchanged-behaviour datapoint |
+| **Total** | **18.5** | |
 
-### 2.2 Remaining Work Detail
+## 2.2 Remaining Work Detail
 
 | Category | Hours | Priority |
 |---|---:|---|
-| Human code review & PR merge of the 7 in-scope files *(task H-1 → risk T5)* | 1.0 | High |
-| Backend CI wiring — install + test job for `/src/backend`; all 3 workflows are pinned to `src/web` + Node 16.x today *(H-2 → T2)* | 3.0 | High |
-| Node runtime deployment path — container image / process supervisor / host target; existing Docker + Terraform assets serve only a static SPA build *(H-3 → O1, O3)* | 4.5 | High |
-| Production hardening — `/health`, graceful `SIGTERM` shutdown, centralized error handler, explicit 404 contract, security-middleware decision *(M-1 → T4, S1)* | 3.0 | Medium |
-| Observability — structured request logging plus metrics/uptime probe; the process currently emits **0 bytes** on stdout and stderr *(M-2 → O2)* | 2.0 | Medium |
-| Node 16 EOL remediation — raise `engines` and the CI matrix to Node 20 LTS, re-validate Express 4.x, re-evaluate Express 5.x *(M-3 → T1)* | 2.5 | Medium |
-| Target-environment configuration — `PORT` allocation, reverse proxy / ingress route, TLS termination, config store *(M-4 → S2, I1, I2)* | 1.5 | Medium |
-| Post-deploy smoke verification of both endpoints in the deployed environment *(M-5 → O4)* | 1.0 | Medium |
-| Dependency governance & lockfile policy — `.gitignore` excludes `package-lock.json` while the CI templates run `npm ci`, which cannot resolve a lockfile *(L-1 → S3)* | 1.5 | Low |
-| **TOTAL REMAINING** | **20.0** | High 8.5 · Medium 10.0 · Low 1.5 |
+| Repair the Terraform load defects so the production root will initialise and plan (triple `required_providers`, five duplicate outputs, interpolated backend, module-argument and provider-alias mismatches, unresolvable Cloudflare source) | 6.0 | High |
+| Stabilise the production tags so the WAF ACL and ACM certificate can be created (`CreatedAt = timestamp()`, `Environment` owned by both `default_tags` and `local.common_tags`) | 2.5 | High |
+| Correct the S3 lifecycle argument (`days` → `noncurrent_days`) that provider 4.x rejects | 0.5 | High |
+| Credentialed plan review of the targeted distribution — in-place `web_acl_id`, no WAF create/replace/destroy, no unrelated change | 2.0 | High |
+| Apply, poll to `Deployed`, and assert live `WebACLId` equality with the `hello-world-react-prod-waf` ARN | 2.0 | High |
+| Edge behaviour smoke against a resolvable hostname — HTTPS 200, server HTTP 30x, SPA deep link | 1.5 | Medium |
+| Managed-rule false-positive and request-cost watch after the association goes live | 2.0 | Medium |
+| Correct the published verification command and wire a non-vacuous IaC scanner gate into CI | 2.0 | Medium |
+| Security review sign-off of the five-file diff and the live ARN equality | 1.0 | High |
+| **Total** | **19.5** | |
 
-### 2.3 Hours Reconciliation
+## 2.3 Basis of Estimate
 
-| Check | Expected | Actual | Status |
-|---|---:|---:|---|
-| Section 2.1 completed total | 30.0 h | 30.0 h | ✅ |
-| Section 2.2 remaining total | 20.0 h | 20.0 h | ✅ |
-| §2.1 + §2.2 = Total Project Hours (§1.2) | 50.0 h | 50.0 h | ✅ |
-| Remaining in §1.2 = §2.2 sum = §7 pie | 20.0 h | 20.0 h | ✅ |
-| Completion % = 30.0 / 50.0 × 100 | 60.0 % | 60.0 % | ✅ |
-| Human task list (§8.4) hours sum | 20.0 h | 20.0 h | ✅ |
-| Remaining-by-priority sum | 20.0 h | 8.5 + 10.0 + 1.5 | ✅ |
-| Out-of-AAP-scope items included in totals | 0.0 h | 0.0 h | ✅ |
+Total project hours are **38.0** — the sum of Section 2.1 (18.5) and Section 2.2 (19.5) — and every hour traces to a specific requirement of the planned change or to a step that must happen before it can be deployed. Implementation hours are small by design: the fix is 22 added lines across five files, and the plan deliberately reused the ACL that already existed rather than provisioning a new one. Verification hours dominate the completed column because a configuration control of this kind is proven by differential scanning, value-flow tracing and byte-level preservation rather than by a test suite, and the repository has no Terraform test harness.
 
-**Composition of the 20.0 h remaining:** 0.0 h is unfinished AAP-specified work; 20.0 h (100 %) is path-to-production work the AAP explicitly deferred in §0.6.2.
+Items the plan placed outside this change and assigned to a separate approval are **not** counted in either column: the second CloudFront distribution and the dangling `enable_waf` argument, a development WAF association, WAF logging and rate controls, the unattached security-headers policy, the declared Terraform version floor, the redundant-comment cleanup, and the frontend build and lockfile work. They are carried in Sections 1.4, 6 and 8 so the reader can schedule them, but they do not move the completion percentage.
 
----
+Confidence is **high** on the implementation and static-verification hours, which are measured against delivered code. Confidence is **medium** on the load-defect repair (6.0 h): the failure set is fully enumerated and a working sequence of repairs has been demonstrated, but it touches provider, backend, output and module-argument wiring across four directories and will need its own review.
 
-## 3. Test Results
+# 3. Test Results
 
-All rows below originate from Blitzy's autonomous validation logs for this project and were re-executed during this assessment.
+Every row below was executed against the current branch and its result observed directly. Terraform has no compiler and this repository has no Terraform test harness, so the infrastructure change is exercised by scanners, formatter parsing and differential comparison rather than by a unit-test framework; those checks are reported here as the tests they are.
 
-| Test Category | Framework | Total Tests | Passed | Failed | Coverage % | Notes |
+| Area / Category | Framework | Tests | Passed | Failed | Coverage | What This Proves |
 |---|---|---:|---:|---:|---|---|
-| Unit / API (in-process HTTP) | Jest 29.7.0 + Supertest 7.2.2 | 2 | 2 | 0 | 100 % lines · 100 % functions · 90 % statements · 25 % branch (`server.js`) | `Test Suites: 1 passed, 1 total` / `Tests: 2 passed, 2 total` / `Snapshots: 0 total`, exit 0. Specs: `GET / returns Hello world`, `GET /good-evening returns Good evening`. The only uncovered statement is `app.listen(...)` inside the `require.main` guard on line 7 — see the note below |
-| Test determinism / flake detection | Jest 29.7.0 (`--ci`, `--detectOpenHandles`) | 2 × 5 runs = 10 executions | 10 | 0 | n/a | 5 independent runs (verbose + `--detectOpenHandles`, `npm test`, 3 × `npx jest --ci`) all exit 0 → deterministic. `--detectOpenHandles` reported nothing: no leaked sockets or timers |
-| Response-fidelity negative control | Jest 29.7.0 + Supertest 7.2.2 | 7 | 7 | 0 | n/a | Proves AAP §0.7 "exact response fidelity" empirically: the suite accepts `Hello world`/`Good evening` and **rejects** `Hello World`, `Hello world ` (one trailing space), `Good Evening` and cross-route bodies |
-| API / runtime (byte-exact, raw socket) | Custom raw HTTP client | 12 assertions | 12 | 0 | 3 of 3 routes exercised | `GET /` hex `48656c6c6f20776f726c64` (11 B) · `GET /good-evening` hex `476f6f64206576656e696e67` (12 B) · no trailing newline/whitespace/BOM · `content-length` matches · `X-Powered-By` absent on all 3 paths · unknown route → 404 |
-| Configuration / port-override | Node runtime probes | 3 | 3 | 0 | 4 of 4 listen branches | `PORT` override verified on **4000** and **4100**, both serving byte-exactly and coexisting with 3001; default `|| 3001` fallback and the "import binds nothing" branch also verified |
-| Static analysis & syntax | `node --check`, strict JSON parse, YAML shape assertions | 17 checks | 17 | 0 | 7 of 7 in-scope files | `node --check` ×2 exit 0; `package.json` strict-JSON round-trip byte-exact with field order preserved; `dependabot.yml` **14/14** Dependabot-v2 shape assertions with pre-existing blocks proven intact |
-| Lint | ESLint 8 (`eslint:recommended` + 12 strict rules) | 2 files, `--max-warnings 0` | 2 | 0 | n/a | **0 problems** — zero errors *and* zero warnings, run with `--no-fix` so no source was mutated |
-| Supply chain | `npm audit` / `npm ls` | 355 packages | 355 | 0 | n/a | **0 vulnerabilities**, exit 0, from a wiped `node_modules` + lockfile; declared versions asserted against AAP §0.3.1 |
-| Code-integrity scans | Pattern sweeps | 7 × 17 + 7 × 9 = 182 checks | 182 | 0 | 7 of 7 in-scope files | Zero-placeholder scan (TODO/FIXME/XXX/HACK/`NotImplementedError`/placeholder/stub/TBD/"for now"/dummy/mock-data/empty arrow bodies …) → **0 hits**; secret scan (AWS keys, PEM blocks, GitHub/Slack/OpenAI tokens, hardcoded credentials, JWTs, DB URIs) → **0 hits** |
-| Browser / UI verification | Chrome (headless, subagent) | 1 session, PASS | — | 0 | 2 of 2 endpoints | DOM char codes prove exact casing (119 = lowercase `w`; 71/101 = capital `G`, lowercase `e`); `X-Powered-By` absence confirmed four independent ways; **0 JS errors, 0 warnings** |
-| Out-of-scope regression control (`src/web`) | `git archive` baseline rebuild + Chrome A/B + SHA256 tree diff | 7 comparison points + 37 file hashes | 44 agree | 0 differ | 37 of 37 tracked files | Byte-identical screenshots (18,172 B, SHA256 `58A62F70…CE78`); character-identical 76-char error + 29-frame stack; baseline-vs-HEAD `tsc --noEmit` string-for-string identical (13 errors, 5 files, same line:col) |
+| CloudFront WAF control on the target distribution | tfsec 1.28.14 (`aws-cloudfront-enable-waf`) | 2 | 2 | 0 | 1 control, 30 blocks / 3 files; readable and JSON-assertion forms (`evaluated=1 passed=1 failed=0`) | The distribution is configured behind a web ACL, earned with no suppression directive, and provable by a gate a CI job can trust |
+| Infrastructure-wide misconfiguration scan | tfsec 1.28.14 (all rules) | 18 | 12 | 6 | All 13 Terraform files | The change introduces no new finding; the six that remain are pre-existing and named in Section 1.4 |
+| Change scope and diff hygiene | git | 4 | 4 | 0 | 5 changed files, +22/−2 | Exactly the five intended paths changed, all modifications, with no whitespace defect in the worktree or the branch range |
+| HCL parse and formatter posture | Terraform 1.15.8 `fmt -check` | 18 | 18 | 0 | 13 files recursively, plus per-file checks on the 5 changed | Every file parses without diagnostics; the added association line is formatter-canonical and no new unformatted file appeared |
+| ARN value-flow wiring | grep-based inspection | 10 | 10 | 0 | 5 hops + 5 forbidden-form checks | One deterministic edge per hop using `.arn`; zero separate association resources, literal ARNs, `.tfvars` overrides, suppression comments or deferred-work markers |
+| Preservation by byte identity | sha256 against the pre-change revision | 4 | 4 | 0 | Distribution block, WAF ACL block, `environments/dev/main.tf`, `versions.tf` | The only semantic difference in the whole distribution is the association line; the ACL, the development caller and the provider contract are untouched |
+| Backend service regression | Jest 29 + supertest (`src/backend`) | 2 | 2 | 0 | 1 suite, `server.test.js` | Application behaviour is unaffected: `GET /` returns "Hello world" and `GET /good-evening` returns "Good evening" |
 
-**Coverage note (honest reading).** Jest reports 100 % lines and 100 % functions for `server.js`; statements sit at 90 % and branches at 25 % because the single uncovered statement is `app.listen(...)` inside `if (require.main === module)`. Adding a test for it would require the schema-forbidden act of binding a real port from the suite, so all four of that guard's behaviours were instead proven at runtime: import binds nothing, direct run binds, `|| 3001` fallback applies, and `PORT` overrides. Coverage of the two route handlers — the actual AAP deliverable — is complete.
+### Not Covered
 
-**Out-of-scope test status (disclosed, not counted).** The `src/web` SPA suite cannot run at all: `src/setupTests.ts:8` resolves to a non-existent module, killing every suite at load. This is pre-existing, human-authored, byte-identical to the baseline, and forbidden from modification by AAP §0.7.
+- **Live association in AWS.** No credentialed `terraform plan`, no apply, no read of the deployed distribution's `WebACLId`, no propagation to `Deployed`, and no AWS Security Hub re-evaluation. Before release, an authorised operator must review the plan and assert that the distribution's `WebACLId` exactly equals the ARN of the CLOUDFRONT-scope ACL `hello-world-react-prod-waf` in us-east-1.
+- **Edge behaviour after association.** No HTTPS-200, HTTP-redirect or SPA deep-link check against a real endpoint. The configured hostname is IANA-reserved and cannot resolve for anyone, so behaviour preservation rests on byte identity alone. Test all three against a real hostname once one exists.
+- **Managed-rule effect on real traffic.** Nothing exercised the AWS Common Rule Set against production request patterns, so the false-positive rate is unknown. Watch sampled requests and the ACL's metrics for 24–48 hours after the association goes live.
+- **The repository's own Terraform entry points.** `terraform init` fails at the root (7 errors), `environments/dev` (5) and `environments/prod` (2) on pre-existing duplicate declarations, so no test drives the configuration the way an operator will. Re-run the whole set once those defects are repaired.
+- **The two new input declarations and three header comments as executing code.** A variable with a `null` default and an HCL comment are inert until a caller supplies a value; they are covered by parsing, formatting and diff comparison, not by an executing test.
+- **Frontend behaviour.** The two Jest suites under `src/web` cannot start — `src/web/src/setupTests.ts` imports a missing `../utils/testUtils`, so 2 suites fail and 0 tests execute against a 100% coverage threshold. No frontend behaviour is covered by any test today. This is unrelated to the association, and no file under `src/` changed.
 
----
+# 4. Runtime Validation & UI Verification
 
-## 4. Runtime Validation & UI Verification
+This is an infrastructure-as-code change with no user interface. The runtime surfaces that exist are the Terraform toolchain, an offline execution model of the AWS control plane, the backend service, and — once deployed — the CloudFront edge itself.
 
-### 4.1 Backend Runtime Health — `src/backend` (in scope)
+- ✅ **Operational — Security gate.** `tfsec` executed against the static-hosting module returns exit 0 with the WAF control passing; the same scan against the pre-change content returns one HIGH finding, so the gate genuinely discriminates.
+- ✅ **Operational — Terraform parse and formatter.** All 13 Terraform files parse under Terraform 1.15.8; the added association line is formatter-canonical and no new unformatted file appears.
+- ✅ **Operational — ARN propagation, modelled end to end.** Executed through the real production entry point against an offline AWS-compatible control plane: the ACL's ARN traverses the production root, the shared root module and the static-hosting module and lands byte-identically on the distribution's `web_acl_id`; the read-back showed `WebACLId` equal to the ACL ARN and the distribution reporting `Deployed`.
+- ✅ **Operational — Association is in-place.** Modelled transitions (null → ARN → different ARN → null) complete as `0 to add, 1 to change, 0 to destroy`, changing only `web_acl_id`, with no replacement marker; the provider schema carries no `ForceNew` on the field.
+- ✅ **Operational — Rollback.** Setting the production argument to `null` disassociates in place and the ACL resource survives; re-applying the ARN restores exact equality.
+- ✅ **Operational — Existing WAF policy under the association.** The modelled ACL keeps CLOUDFRONT scope, default allow, the single AWS Common Rule Set rule, both visibility configurations and its metrics — no rule, action or logging change.
+- ✅ **Operational — Backend service.** Started locally on port 3001: `/` returns 200 "Hello world", `/good-evening` returns 200 "Good evening", an unknown path returns 404. No console or server error; the service was stopped and the port released.
+- ⚠ **Partial — Development environment.** The development caller is unchanged and deliberately plans `web_acl_id = null`, so its distribution is verified to remain unassociated rather than protected.
+- ❌ **Failing — Repository Terraform entry points.** `terraform init` cannot load the root (7 errors), `environments/dev` (5) or `environments/prod` (2) because of pre-existing duplicate provider and output declarations. These are identical on the pre-change revision and mention nothing in the WAF wiring, but they mean an operator cannot plan or apply from the repository as it stands.
+- ❌ **Failing — Frontend application.** The SPA does not build: `src/web/webpack.config.ts:180` fails to compile (`Block-scoped variable 'config' used before its declaration`), `tsc --noEmit` reports pre-existing syntax errors in four source files, and the rendered page is blank. No file under `src/` changed in this work.
 
-- ✅ **Operational** — `npm start` binds `process.env.PORT || 3001` and serves immediately; port released cleanly on shutdown.
-- ✅ **Operational** — `GET /` → **HTTP 200**, body `Hello world`, `Content-Length: 11`, exact case-sensitive match confirmed.
-- ✅ **Operational** — `GET /good-evening` → **HTTP 200**, body `Good evening`, `Content-Length: 12`, exact case-sensitive match confirmed.
-- ✅ **Operational** — Unknown route (`GET /nope`) → **HTTP 404** via Express's default `finalhandler`, with `Content-Security-Policy: default-src 'none'` and `X-Content-Type-Options: nosniff`. No unintended extra routes exist.
-- ✅ **Operational** — `X-Powered-By` **absent** on every path (`app.disable('x-powered-by')`), confirmed four independent ways.
-- ✅ **Operational** — `PORT` override honored: with `PORT=4000` the server serves both endpoints on 4000 and **3001 stops listening entirely** (override, not addition). Also verified on 4100.
-- ✅ **Operational** — Byte-level exactness: hex dumps match the required strings with no trailing newline, whitespace or BOM; `content-length` agrees with the payload.
-- ✅ **Operational** — In-process import is side-effect free: `require('./server')` binds no port, which is what lets Supertest run without a live socket.
-- ⚠ **Partial** — **Process emits no output whatsoever.** Verified directly: stdout **0 bytes**, stderr **0 bytes** across a full request cycle. Intentional under the minimalism ethos, but it means a production failure would be silent → task **M-2**.
-- ❌ **Failing / absent** — No `/health` endpoint and no graceful `SIGTERM` shutdown, so orchestrators cannot probe liveness or drain connections → task **M-1**.
+**Never exercised at runtime:** the live AWS account — no credentialed plan, apply, distribution read or propagation observation was performed, because no authorised principal, remote state, distribution identifier or CI role exists and the stack has never been applied. The public edge was likewise never reached: the configured hostname is an IANA-reserved placeholder that returns authoritative NXDOMAIN, so HTTPS delivery, the HTTP-to-HTTPS redirect, the SPA fallback, response security headers and managed-rule false positives are all unobserved. The offline model above is a faithful substitute for the association mechanism, not evidence about the production account.
 
-### 4.2 UI Verification
+# 5. Compliance & Quality Review
 
-- ✅ **Operational** — Browser verification of the two endpoints (Chrome, headless): both responses render with the exact expected characters, proven at char-code level (119 for the lowercase `w` in "world" — an uppercase `W` would be 87; 71 and 101 for the capital `G` and lowercase `e` in "Good evening"). Zero JavaScript errors and zero console warnings.
-- ✅ **Operational** — Header verification in-browser: `X-Powered-By` absence confirmed via document navigation, a cache-bypassed reload, a full in-page `fetch` header enumeration, and an out-of-band HTTP client.
-- **N/A** — No UI deliverable exists in this AAP. §0.5.3 states the feature is backend-only: both endpoints return plain text, no React component/style/screen was added or changed, no Figma frames were supplied and no design system is specified.
-- ❌ **Failing (out of scope, pre-existing)** — The `src/web` SPA renders a **blank page**: the render path never wraps the tree in a styled-components `ThemeProvider`, so `theme.spacing.vertical` throws. The only `ThemeProvider` under `src/web/src` is in the test-only `utils/testUtils.ts`. Proven byte-identical to the pre-feature baseline and excluded from this guide's totals by AAP §0.6.2.
+## 5.1 Compliance Matrix
 
-### 4.3 API Integration Outcomes
-
-- ✅ **Operational** — Zero external integrations required or present. The only environment reference in the entire backend is `process.env.PORT` (`server.js:7`); no HTTP client, database driver, credential or third-party SDK appears in any in-scope file.
-- ✅ **Operational** — Independence from the SPA confirmed: no shared code, no imports in either direction (`src/web/tsconfig.json` `include` is `["src/**/*"]` and never reaches `src/backend`), and the string "backend" appears in zero `src/web` toolchain output. The two are separate OS processes exactly as AAP §0.4 specifies.
-- ⚠ **Partial** — Reachability is proven only on `localhost`. No reverse proxy, ingress route or TLS terminator maps a public path to the service → tasks **M-4** and **M-5**.
-
----
-
-## 5. Compliance & Quality Review
-
-### 5.1 AAP Deliverable Compliance Matrix
-
-| AAP ID | Deliverable / Requirement | Benchmark | Evidence | Status |
+| # | Deliverable / Benchmark | Status | Verified State | Evidence |
 |---|---|---|---|---|
-| FR-1 | Introduce Express.js as a runtime dependency | Declared and installed, 4.x line | `package.json` → `express ^4.21.2`; `npm ls` → `express@4.22.2`; `server.js:1` | ✅ Pass — 100 % |
-| FR-2 | `GET /good-evening` → exactly `Good evening` | Byte-exact body, 200 | hex `476f6f64206576656e696e67`, 12 B; Jest spec; browser char codes 71/101 | ✅ Pass — 100 % |
-| FR-3 | Preserve `Hello world` via `GET /` | Byte-exact body, 200, lowercase `w` | hex `48656c6c6f20776f726c64`, 11 B; browser char code 119 | ✅ Pass — 100 % |
-| G1a | CREATE `src/backend/package.json` *(required)* | Valid strict JSON, prescribed field order | 21 lines; round-trips byte-exactly; order `name,version,private,main,engines,scripts,dependencies,devDependencies` | ✅ Pass — 100 % |
-| G1b | CREATE `src/backend/server.js` *(required)* | Minimal CommonJS entry, both routes, export + listen guard | 7 lines / 303 bytes; `node --check` exit 0 | ✅ Pass — 100 % |
-| G2a | CREATE `src/backend/README.md` *(recommended)* | Install / run / verify documented | 42 lines; every documented command re-executed successfully in this assessment | ✅ Pass — 100 % |
-| G2b | CREATE `src/backend/.env.example` *(optional)* | Documents `PORT`, real `.env` not committed | `PORT=3001`; `.env` matched by `.gitignore` | ✅ Pass — 100 % |
-| G3 | CREATE `src/backend/server.test.js` *(optional)* | Both endpoints asserted via Supertest | 2 specs, 2/2 passing over 5 runs | ✅ Pass — 100 % |
-| G4a | UPDATE root `README.md` *(optional)* | "Backend (Express)" section added, unrelated notes untouched | ~28 added lines; the pre-existing "Create React App"/"Jest 27.x" notes correctly left alone per §0.6.2 | ✅ Pass — 100 % |
-| G4b | UPDATE `.github/dependabot.yml` *(optional)* | `/src/backend` npm block added, existing blocks intact | +18/−1; 14/14 v2 shape assertions; `/src/web` (3 groups) + `github-actions` proven unchanged | ✅ Pass — 100 % |
-| D1–D3 | `express ^4.21.2`, `jest ^29.7.0`, `supertest ^7.2.2` | Node-16-compatible majors only | Installed 4.22.2 / 29.7.0 / 7.2.2 — asserted programmatically as *not* Express 5 and *not* Jest 30 | ✅ Pass — 100 % |
-| D4 | No updates or removals to existing dependencies | SPA dependency tree untouched | `git diff -- src/web` empty; `src/web/package.json` MD5 identical before/after install | ✅ Pass — 100 % |
-| R1 | Exact response fidelity — no JSON/HTML/punctuation wrapping | Byte-exact, negative-controlled | 12/12 raw-HTTP assertions + 7/7 negative control | ✅ Pass — 100 % |
-| R2 | Backward compatibility — `Hello world` still available | Endpoint live | `GET /` → 200 `Hello world` | ✅ Pass — 100 % |
-| R3 | Additive, non-disruptive — no file under `src/web/**` modified | Byte-identical to baseline | 37/37 files identical by SHA256; `git diff` empty; identical `tsc` output; byte-identical browser screenshots | ✅ Pass — 100 % |
-| R4 | `src/<app>/` convention + manifest mirroring | `private: true`, `1.0.0`, engines node `>=16.0.0` / npm `>=8.0.0` | Field-by-field match against `src/web/package.json` | ✅ Pass — 100 % |
-| R5 | Minimalism — single small CommonJS entry, no unrequested middleware | ≤ ~10 lines, zero middleware, zero extra routes | 7 lines; only deviation is one Express *setting*, reconciled below | ✅ Pass — 100 % (1 documented deviation) |
-| R6 | No-lockfile convention respected | No lockfile tracked | `git ls-files` contains no `package-lock.json` or `yarn.lock` | ✅ Pass — 100 % |
-| R7 | Node 16.x runtime compatibility of all packages | Express 4.x, Jest 29.x | Version assertions pass. **Caveat:** validated on Node v22.23.2, so Node-16 support is reasoned, not runtime-proven → risk T1 | ⚠ Pass with caveat — 95 % |
-| R8 | Port hygiene — 3001 default with `PORT` override, never 3000 | Override honored, no collision | `server.js:7`; proven live on 4000 and 4100; 3000 never bound | ✅ Pass — 100 % |
-| §0.5.3 | User interface design | Declared Not Applicable | Backend-only; no component/style/screen added; no Figma, no design system | ✅ N/A — correctly scoped |
-| §0.6.2 | Out-of-scope boundary respected | Zero edits to excluded paths | `git diff da0d24d..HEAD` empty for `src/web`, `infrastructure`, `.github/workflows`, `.gitignore` | ✅ Pass — 100 % |
+| 1 | Distribution associated with a WAFv2 web ACL | ✅ PASS | `web_acl_id` present once, top-level, unconditional | `modules/static-hosting/main.tf:111` |
+| 2 | Static-hosting module accepts an optional ARN | ✅ PASS | String, described, `default = null`, no null-rejecting guard | `modules/static-hosting/variables.tf:47-51` |
+| 3 | Root module accepts and forwards the ARN | ✅ PASS | One declaration, one forwarding edge, no transformation or fallback | `variables.tf:48-52`; `main.tf:55` |
+| 4 | Production supplies the existing ACL's ARN | ✅ PASS | `aws_wafv2_web_acl.main.arn` — the ARN, not the id | `environments/prod/main.tf:67` |
+| 5 | Native mechanism, no separate association resource | ✅ PASS | Zero `aws_wafv2_web_acl_association` anywhere under `infrastructure/terraform` | Repository-wide search |
+| 6 | Existing WAF rule policy unchanged | ✅ PASS | ACL block byte-identical to the pre-change revision | `environments/prod/main.tf:123-161`, sha256 match |
+| 7 | Distribution behaviour preserved | ✅ PASS | Block minus the association line byte-identical: origin/OAI, 404→200 SPA fallback, cache and methods, `redirect-to-https`, ACM + `TLSv1.2_2021` + `sni-only`, geo restriction, tags | `modules/static-hosting/main.tf:105-162`, sha256 match |
+| 8 | Backward compatibility for omitted-input callers | ✅ PASS | Development caller byte-unchanged, zero WAF references, plans `web_acl_id = null` | `environments/dev/main.tf:61-69` |
+| 9 | Five-file change scope honoured | ✅ PASS | Exactly five paths, all modifications, +22/−2, nothing under `src/`, `.github/`, docs, manifests, lockfiles or tfvars | Branch diff vs base |
+| 10 | Control closed on merit, not silenced | ✅ PASS | No `tfsec:ignore` / `checkov:skip` / `trivy:ignore` / `nosec`; no literal ARN; no `.tfvars` override path | Repository-wide search |
+| 11 | No dependency, provider or lockfile change | ✅ PASS | `versions.tf` byte-unchanged; Terraform `>= 1.0.0` and `aws ~> 4.0` retained; provider 4.67.0 supports the field | `versions.tf`; provider schema |
+| 12 | Deployment-stage acceptance (credentialed plan, live ARN equality, edge smoke) | ⚠ INCOMPLETE | Modelled offline through the real production entry point; never executed against the account | Section 4; Section 2.2 rows 4–6 |
 
-### 5.2 Engineering Quality Benchmarks
+## 5.2 AAP & Rule Divergences and Gaps
 
-| Benchmark | Target | Result | Status |
-|---|---|---|---|
-| Test pass rate (in scope) | 100 % | 2/2 = 100 % | ✅ Pass |
-| Test determinism | 0 flakes | 5/5 identical runs | ✅ Pass |
-| Syntax / compilation (in scope) | 0 errors | `node --check` ×2 exit 0 | ✅ Pass |
-| Lint findings (in scope) | 0 errors, 0 warnings | 0 problems at `--max-warnings 0` | ✅ Pass |
-| Dependency vulnerabilities (in scope) | 0 | 0 of 355 packages | ✅ Pass |
-| Placeholders / stubs / TODOs | 0 | 0 hits across 7 files × 17 patterns | ✅ Pass |
-| Hardcoded secrets | 0 | 0 hits across 7 files × 9 patterns | ✅ Pass |
-| Commit provenance | 100 % `agent@blitzy.com` | 21/21 commits since baseline | ✅ Pass |
-| Working-tree cleanliness | No uncommitted in-scope change | `git diff HEAD --stat` empty; `git status` shows only the intentionally excluded evidence directories | ✅ Pass |
-| Build artifacts committed | None | No `build/`, `dist/`, `coverage/`, `node_modules/` or lockfile tracked | ✅ Pass |
-| Repo-wide build / type-check | 0 errors | ❌ 13 pre-existing TS errors in out-of-scope `src/web` (independently reproduced: `npx tsc --noEmit` exit 2) | ⚠ Out of scope — unchanged from baseline |
+No user-specified rules were provided for this project, so no rule can have been violated; the divergences below are all against the planned change. Seven were identified.
 
-### 5.3 Fixes Applied During Autonomous Validation
+| # | What the AAP/Rule Required | What Was Delivered Instead | Why It Diverged | Impact | Remediation |
+|---|---|---|---|---|---|
+| 1 | Acceptance gate `tfsec … --filter-results AVD-AWS-0011` | The same scan filtered on `aws-cloudfront-enable-waf`, plus Trivy `AWS-0011` and Checkov `CKV_AWS_68` | tfsec 1.28.14 matches `--filter-results` on the long rule id, never the AVD id, so the specified form evaluates zero rules | The control is genuinely closed, but the published command would sign off unfixed code | Amend the runbook and wire a non-vacuous CI gate (Section 2.2) |
+| 2 | Credentialed plan review, post-apply `WebACLId` equality, and HTTPS/HTTP smoke checks | The same assertions executed through the real production entry point against an offline AWS-compatible control plane, plus byte-identity preservation proofs | No authorised AWS principal, remote state, distribution identifier or resolvable hostname exists, and the stack has never been applied | Production sign-off is not satisfied; the association is unobserved in the account | Run all three in an authenticated deployment context (Section 2.2) |
+| 3 | Leave the pre-existing Terraform load defects unrepaired | Honoured exactly — they are all still present | The plan named the candidate repairs by file and line and forbade them, to keep the change minimal | The association is correct in code but cannot be planned or applied from the repository as it stands | Approve a separate cleanup; three rows in Section 2.2 cover it |
+| 4 | Only the argument and variable declarations, "and nothing else" | Three one-line `#` headers at the three wiring sites | Each of those blocks documents every variable or argument group; the wording records constraints the code cannot state | None functional — three inert comment lines | None required; ratify the wording |
+| 5 | Toolchain pinned at Node 16.20.2 / npm 8.19.4 | Node 22.23.2 / npm 11.18.0 | The environment supplies a newer runtime; the pin existed for completeness, not for this change | None — no application file changed and the backend suite passes | None for this change |
+| 6 | Development may remain unassociated *(Sanctioned)* | Development is unassociated; both inputs default to `null` and it passes none | Explicitly sanctioned by the plan as the backward-compatible default | Development traffic is unfiltered — a non-production posture, not a production bypass | Separate decision on whether development should receive a web ACL |
+| 7 | The second CloudFront distribution is follow-up work *(Sanctioned)* | It still has no web ACL, and the root still passes an `enable_waf` argument the CDN module never declares | Explicitly excluded from this change and assigned to a separate approval | Repository-wide WAF coverage is not achieved and is not claimed | Separate approved scope, reusing this ARN pass-through pattern |
 
-| Fix | Commit / Area | Outcome |
-|---|---|---|
-| Node 16 dependency compatibility + artifact hygiene (M1 review findings) | `22353c7` | Package majors realigned to the documented Node 16.x runtime |
-| Manifest and README aligned to the frozen AAP engine contract (F1, F2) | `d320e13` | `engines` and documentation made consistent with `src/web` |
-| Framework fingerprint removed | `e6580c8` | `app.disable('x-powered-by')` — absence later confirmed four independent ways |
-| ESLint invocation defect (`--rulesdir NUL` → `ENOENT` exit 2) | Validation tooling | Replaced with a standalone `-c` config plus `--resolve-plugins-relative-to`; run then returned exit 0 with 0 problems |
-| Scratch static-server crash on literal `%PUBLIC_URL%` (`URIError`, uncaught) | Validation tooling | Added `safeDecode()`, a whole-handler try/catch, a `clientError` handler and a process-level guard; verified by raw-socket probe with 0-byte stderr |
-| CRLF false negative in the documentation audit | Validation tooling | Replaced `(?m)^cmd$` regex with exact whole-line membership tests |
+**1 — The published gate evaluates nothing.** The specified acceptance command filters tfsec results on `AVD-AWS-0011`, but that version keys `--filter-results` on the long rule identifier. Run as written it exits 0 having evaluated zero rules — the same exit code it returns against the vulnerable configuration, so an exit-code gate would approve unfixed code. Verification therefore used `aws-cloudfront-enable-waf`, which reports `passed 1` here and one HIGH finding on the pre-change content, corroborated by Trivy and by Checkov `CKV_AWS_68`. The substantive control is closed three independent ways; what remains wrong is the published text. Amend it to the long identifier and assert `evaluated ≥ 1 AND passed ≥ 1 AND failed = 0`, then run it in CI — no workflow under `.github/workflows` scans Terraform today.
 
-### 5.4 Outstanding Compliance Items
+**2 — Deployment-stage acceptance was not run against AWS.** Three of the six acceptance checks are deployment-stage: a credentialed plan showing an in-place `web_acl_id` update with no WAF resource created or destroyed, a post-apply assertion that the distribution's `WebACLId` equals the `hello-world-react-prod-waf` ARN, and HTTPS/HTTP smoke checks. None ran: every AWS call fails with no credentials, the remote state bucket and lock table are unreachable, no distribution identifier exists, and the stack has never been applied — `.github/workflows/deploy.yml` publishes to GitHub Pages. Those assertions were instead executed verbatim through the real production entry point against an offline control plane, which proves the mechanism but says nothing about the account. Until an operator runs them for real, the association is correct in code and unobserved in production.
 
-1. **One documented deviation from the frozen file schema** — `server.js` carries `app.disable('x-powered-by');` beyond its verbatim 6 lines. Retained deliberately: it is an Express *setting* rather than middleware, a route or business logic; byte-exact hex proofs show neither status nor body changes; and removing it would regress a security fix. **Requires explicit reviewer ratification (task H-1).**
-2. **`README.md` final-newline flag investigated and correctly left alone** — `git cat-file blob` proved the baseline blob `72060923` also ends `0x74`, so the missing newline is pre-existing; no repository rule enforces one (no `.gitattributes`, `.editorconfig`, root `.prettierrc` or markdownlint; the only CI lint step is `eslint src --ext .ts,.tsx`). Adding the byte would create an unsanctioned diff in a region §0.6.2 protects. All 5 newly created files do end `0x0a`.
-3. **Node-16 compatibility is reasoned, not runtime-proven** — all validation ran on Node v22.23.2. Closed by task **M-3**, which retires the Node 16 pin entirely.
+**3 — The stack cannot be initialised, so the fix cannot land.** The plan named the repair candidates that sit inside the five changed files — the duplicate CloudFront outputs and the module call blocks — and forbade touching them, so they remain. `terraform init` consequently fails at the root with seven errors and at `environments/prod` with two, from three colliding `required_providers` blocks and five duplicate output definitions; an interpolated `backend "s3"`, module-argument mismatches, a missing `aws.us-east-1` alias and an unresolvable `hashicorp/cloudflare` source sit behind them. Every one is present on the pre-change revision and none mentions the WAF wiring. This is the highest-value follow-up in the guide: the security benefit does not exist in production until it is done.
 
----
+**4 — Three explanatory comments beyond the literal change.** The transformation text specifies the argument and the two variable declarations and nothing more, yet three one-line `#` headers were added: at `variables.tf:47`, `main.tf:54` and `environments/prod/main.tf:66`. Each sits in a block that documents every variable or argument group, and each records something the adjacent expression cannot — that the value is a post-apply resource attribute rather than a `terraform.tfvars` literal, that ownership of the ACL belongs to the environment, and that CloudFront accepts only a CLOUDFRONT-scope ACL's ARN and never its id. HCL comments are inert, so the functional impact is nil and the delivered line counts are three higher than a literal reading implies. Nothing to close; ratify the wording if the specification is read strictly.
 
-## 6. Risk Assessment
+**5 — Toolchain runtime versions.** The plan pinned Node 16.20.2 and npm 8.19.4 for environment completeness while stating the application toolchain would not be exercised. The environment provides Node 22.23.2 and npm 11.18.0 instead. This has no bearing on a Terraform-only change: no file under `src/` changed anywhere on the branch, `npm install` was never run against the frontend, and the backend suite passes on the newer runtime. Note it only so a future differential check against the pinned pair is not read as a regression. The frontend's absent lockfile — recorded in the plan as a known environment constraint — remains, so `npm ci` and `npm audit` are still unavailable there.
+
+**6 — Development is deliberately unprotected (Sanctioned).** Both new inputs default to `null`, and `environments/dev/main.tf:61-69` calls the static-hosting module directly without supplying an ARN. The file is byte-unchanged and contains no WAF reference, and a development-shaped plan resolves `web_acl_id` to `null` and creates no WAF resource. That is exactly the backward compatibility the plan required, and it is why no existing caller broke. The consequence is that development edge traffic is unfiltered. This is a non-production posture rather than a production bypass, but it is a real asymmetry: decide separately whether development should receive its own CLOUDFRONT-scope ACL, or accept it explicitly.
+
+**7 — A second distribution is still unprotected (Sanctioned).** `aws_cloudfront_distribution.this` in `infrastructure/terraform/modules/cdn/main.tf:58-128` reaches the public internet with no web ACL, and it is the sole remaining instance of this control anywhere in the tree. The root module also passes `enable_waf = true` at `main.tf:72`, an argument the CDN module never declares and which therefore does nothing. Both were explicitly placed outside this change and assigned to a separate approval, so their presence is sanctioned rather than a defect — but a reader should not infer repository-wide WAF coverage from this work. The same five-hop ARN pass-through pattern will close it; do it under its own scope so the CDN distribution's own settings get a proper review.
+
+# 6. Risk Assessment
+
+These are forward-looking exposures — what can still go wrong between here and a protected production edge.
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
 |---|---|---|---|---|---|
-| **T1** — `engines.node >=16.0.0` and CI `node-version: [16.x]` pin a runtime that has reached end of life and receives no security patches | Technical | High | High | Move `engines` and the CI matrix to Node 20 LTS, then re-run the 2/2 suite and byte-exact endpoint checks (task **M-3**, 2.5 h). Express 4.x already supports Node 20 | Open — deferred by AAP §0.6.2 |
-| **T2** — Zero CI coverage for `src/backend`: all 3 workflows are pinned `working-directory: src/web`, so the 2/2 suite runs only when invoked by hand and a future regression can merge undetected | Technical | Medium | High | Add the backend install + test job (**H-2**, 3.0 h); resolve lockfile policy (**L-1**) first if `npm ci` is desired | Open |
-| **T3** — Jest leaves `app.listen(...)` inside the `require.main` guard uncovered (90 % statements, 25 % branch) | Technical | Low | Medium | Already mitigated: all four branches proven behaviourally at runtime (import binds nothing, direct run binds, `\|\| 3001` fallback, `PORT` override). Formalize in CI when **H-2** lands | Mitigated — behaviourally verified |
-| **T4** — No `/health` endpoint and no graceful `SIGTERM` shutdown, so orchestrators cannot probe liveness or drain in-flight requests | Technical | Medium | High | Add both plus a centralized error handler and explicit 404 contract (**M-1**, 3.0 h) | Open |
-| **T5** — `server.js` deviates from its frozen schema by one line (`app.disable('x-powered-by')`) | Technical | Low | Low | Reconciled and retained with evidence; ratify during PR review (**H-1**) | Accepted / documented |
-| **S1** — No security middleware (helmet, CORS policy, rate limiting); both endpoints are unauthenticated and unthrottled | Security | Medium | Medium | Deliberate under the AAP minimalism ethos. Decide during **M-1**, or re-scope explicitly — adopting middleware is a scope change, not a bug fix | Open by design |
-| **S2** — Server binds plain HTTP on 3001; no TLS anywhere in the deliverable | Security | Medium | High if internet-exposed | Terminate TLS at a reverse proxy or ingress in front of the service (**M-4**, 1.5 h) | Open |
-| **S3** — No lockfile is committed, so installs resolve caret ranges freshly; a compromised or breaking transitive release can enter silently (`express` already floated `4.21.2` → `4.22.2`) | Security | Medium | Medium | Resolve the governance conflict (**L-1**, 1.5 h). Present mitigation: `npm audit` → 0 vulnerabilities across 355 packages, plus the new weekly Dependabot `/src/backend` block | Open — repo-wide convention |
-| **S4** — 29 pre-existing `npm audit` vulnerabilities in the out-of-scope `src/web` dependency tree | Security | Medium | Medium | Out of AAP scope; the Dependabot `/src/web` block is already active and has open update branches | Open — excluded from hour totals |
-| **O1** — No deployment artifact can host a long-lived Node process: `infrastructure/docker` (Dockerfile + nginx) and Terraform `static-hosting` + `cdn` target a static SPA build only | Operational | High | High | Build a backend image or supervisor unit plus IaC to run it (**H-3**, 4.5 h) | Open — deferred by AAP §0.6.2 |
-| **O2** — No logging or monitoring: the process emits **0 bytes** to stdout and stderr, verified across a full request cycle, so failures are invisible | Operational | Medium | High | Structured request logging plus metrics/uptime probe (**M-2**, 2.0 h) | Open |
-| **O3** — No process supervisor or restart policy; an unhandled crash takes both endpoints down until manual intervention | Operational | Medium | Medium | Covered by **H-3** (container restart policy, systemd or PM2) | Open |
-| **O4** — Runbook is local-only (`npm install` / `npm start` / curl); no documented production start, rollback or on-call procedure | Operational | Low | Medium | Extend `src/backend/README.md` as part of **H-3** / **M-5** | Open |
-| **I1** — Port 3001 is unallocated in any real environment; only local collision-avoidance with the SPA's 3000 was designed for | Integration | Low | Medium | `process.env.PORT` override already implemented and proven on 4000/4100; assign the real port in **M-4** | Mitigated in code — environment pending |
-| **I2** — No reverse-proxy or ingress route maps a public path to the backend; SPA and backend are fully decoupled with zero shared code | Integration | Medium | Medium | Add the route during **M-4**; note the decoupling is by design per AAP §0.4 | Open |
-| **I3** — The out-of-scope `src/web` SPA does not type-check, test, build or render (6 pre-existing human-authored defects, incl. a `webpack.config.ts` spread that stops webpack-cli loading the config and a missing `ThemeProvider` that renders the page blank), so a repository-wide release train would fail even though the backend is healthy | Integration | High | High | Out of AAP scope: §0.6.2 excludes these files and §0.7 forbids modifying them, and none of it is required to deploy the backend, which is a separate OS process with zero coupling. Proven byte-identical to baseline `da0d24d`. Needs a separate AAP / work item | Open — **excluded from the hour totals by design** |
+| The production stack cannot be initialised or planned, so the association never reaches AWS. Three colliding `required_providers` blocks and five duplicate output definitions fail `terraform init` at the root (7 errors) and at `environments/prod` (2) | Technical | **High** | Certain — already true | Approve the separate cleanup: collapse the provider declarations keeping `cloudflare/cloudflare`, delete the duplicate outputs, de-interpolate the backend, reconcile module arguments and the `aws.us-east-1` alias | Open |
+| The first apply fails outright. `CreatedAt = timestamp()` and an `Environment` tag owned by both `default_tags` and `local.common_tags` make tags unknown at plan time, aborting the WAF ACL and the ACM certificate; separately, `noncurrent_version_expiration { days = 30 }` is not a provider-4.x argument | Technical | **High** | High | Make `CreatedAt` stable (or ignore changes on it), give each tag key one owner, and rename `days` to `noncurrent_days` — a controlled experiment confirmed these are the only blockers | Open |
+| A second public CloudFront distribution has no web ACL, and the root passes an `enable_waf` argument the CDN module never declares | Security | **High** | Certain — already true | Close it under a separate approved scope using the same ARN pass-through pattern, and remove or wire up the dangling argument | Open — deferred by design |
+| Nothing prevents this control regressing. No workflow scans Terraform, and the published verification command evaluates no rule, so a future change could remove the association silently | Security | Medium | Medium | Add a CI job asserting `evaluated ≥ 1 AND passed ≥ 1 AND failed = 0` on the discriminating rule id, optionally with Trivy and Checkov | Open |
+| The associated ACL is baseline strength only — default allow plus a single AWS Common Rule Set, with no rate-based rule, IP set, challenge action or `logging_configuration`, so blocked requests leave no forensic trail | Security | Medium | Medium | Add WAF logging first, then rate and IP controls, under a separate approval | Accepted — expanding the policy was excluded from this change |
+| Managed-rule false positives block legitimate traffic once the ACL is in the request path; propagation delay and new per-request WAF charges also begin at that moment | Operational | Medium | Medium | Watch the ACL's already-enabled metrics and sampled requests for 24–48 hours, poll the distribution to `Deployed`, and roll back by setting the production argument to `null` if needed — the ACL survives | Open |
+| No authorised AWS context exists: no principal, no remote state or lock-table access, no distribution identifier, and no deployment provenance. Every deployment-stage acceptance check depends on this | Integration | **High** | Certain — already true | Supply a short-lived principal with CloudFront and WAFv2 read plus apply rights and state access, then run the plan review and the live equality assertion | Open |
+| No resolvable deployed hostname. The configured domain is IANA-reserved and can never resolve, and the two places that declare it disagree, so edge behaviour cannot be observed at all | Integration | Medium | Certain — already true | Supply a real hostname with DNS and a us-east-1 ACM certificate, or read the distribution's own `*.cloudfront.net` name from authorised state; reconcile the two declarations | Open |
 
-**Risk-to-task coverage.** Every open in-scope risk is closed by a Section 2.2 work item: T1→M-3, T2→H-2, T4→M-1, T5→H-1, S1→M-1, S2→M-4, S3→L-1, O1/O3→H-3, O2→M-2, O4→M-5, I1/I2→M-4. Only **S4** and **I3** have no assigned task — both are out-of-AAP-scope `src/web` items requiring a separate engagement.
+# 7. Visual Project Status
 
----
-
-## 7. Visual Project Status
-
-### 7.1 Project Hours Breakdown
+**Hours: completed versus remaining.** Completed work is shown in dark blue (`#5B39F3`); remaining work in white (`#FFFFFF`).
 
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"pie1":"#5B39F3","pie2":"#FFFFFF","pieStrokeColor":"#B23AF2","pieStrokeWidth":"2px","pieOuterStrokeColor":"#B23AF2","pieOuterStrokeWidth":"2px","pieSectionTextColor":"#FFFFFF","pieTitleTextSize":"15px","pieLegendTextSize":"13px"}}}%%
-pie showData title Project Hours — 50.0 h total, 60.0% complete
-    "Completed Work" : 30
-    "Remaining Work" : 20
+%%{init: {"themeVariables": {"pie1": "#5B39F3", "pie2": "#FFFFFF", "pieStrokeColor": "#B23AF2", "pieStrokeWidth": "2px", "pieOuterStrokeColor": "#B23AF2", "pieTitleTextSize": "16px", "pieSectionTextSize": "14px"}}}%%
+pie showData title Project Hours Breakdown — 38.0 h Total
+    "Completed Work" : 18.5
+    "Remaining Work" : 19.5
 ```
 
-*Completed Work = **30 h** (Dark Blue `#5B39F3`) · Remaining Work = **20 h** (White `#FFFFFF`). Matches Section 1.2 and the Section 2.2 total exactly.*
-
-### 7.2 Remaining Work by Priority
+**Remaining work by priority.** High-priority items are the release path; medium-priority items harden and observe it.
 
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"pie1":"#5B39F3","pie2":"#A8FDD9","pie3":"#FFFFFF","pieStrokeColor":"#B23AF2","pieStrokeWidth":"2px","pieOuterStrokeColor":"#B23AF2","pieOuterStrokeWidth":"2px","pieTitleTextSize":"15px","pieLegendTextSize":"13px"}}}%%
-pie showData title Remaining 20.0 h by Priority
-    "High" : 8.5
-    "Medium" : 10
-    "Low" : 1.5
+%%{init: {"themeVariables": {"pie1": "#5B39F3", "pie2": "#A8FDD9", "pieStrokeColor": "#B23AF2", "pieStrokeWidth": "2px", "pieOuterStrokeColor": "#B23AF2", "pieTitleTextSize": "16px", "pieSectionTextSize": "14px"}}}%%
+pie showData title Remaining 19.5 h by Priority
+    "High" : 14.0
+    "Medium" : 5.5
 ```
 
-### 7.3 Remaining Hours by Category
+**Remaining hours by category (Section 2.2).**
 
-| Category | Hours | Bar (each ▉ ≈ 0.5 h) |
+| Category | Hours | Share of 19.5 h |
 |---|---:|---|
-| Node runtime deployment path | 4.5 | ▉▉▉▉▉▉▉▉▉ |
-| Backend CI wiring | 3.0 | ▉▉▉▉▉▉ |
-| Production hardening | 3.0 | ▉▉▉▉▉▉ |
-| Node 16 EOL remediation | 2.5 | ▉▉▉▉▉ |
-| Observability | 2.0 | ▉▉▉▉ |
-| Target-environment configuration | 1.5 | ▉▉▉ |
-| Dependency governance / lockfile policy | 1.5 | ▉▉▉ |
-| Human code review & PR merge | 1.0 | ▉▉ |
-| Post-deploy smoke verification | 1.0 | ▉▉ |
-| **Total** | **20.0** | |
+| Terraform load-defect repair | 6.0 | `████████████` 30.8% |
+| Production tag stabilisation | 2.5 | `█████` 12.8% |
+| Credentialed plan review | 2.0 | `████` 10.3% |
+| Apply, propagation and live ARN equality | 2.0 | `████` 10.3% |
+| False-positive and request-cost watch | 2.0 | `████` 10.3% |
+| Corrected verification gate in CI | 2.0 | `████` 10.3% |
+| Edge behaviour smoke | 1.5 | `███` 7.7% |
+| Security review sign-off | 1.0 | `██` 5.1% |
+| S3 lifecycle argument correction | 0.5 | `█` 2.6% |
+| **Total** | **19.5** | **100%** |
 
-### 7.4 AAP Requirement Status
+**Delivered value path.** The ARN travels one deterministic route from the environment-owned web ACL to the distribution's native association field.
 
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"pie1":"#5B39F3","pie2":"#FFFFFF","pieStrokeColor":"#B23AF2","pieStrokeWidth":"2px","pieOuterStrokeColor":"#B23AF2","pieOuterStrokeWidth":"2px","pieSectionTextColor":"#FFFFFF","pieTitleTextSize":"15px","pieLegendTextSize":"13px"}}}%%
-pie showData title AAP-Specified Requirements — 22 of 22 Complete
-    "Completed" : 22
-    "Partially Completed / Not Started" : 0
+flowchart LR
+    ACL["aws_wafv2_web_acl.main<br/>CLOUDFRONT scope<br/>environments/prod/main.tf:123"]
+    PROD["module &quot;root&quot;<br/>web_acl_arn = ...main.arn<br/>environments/prod/main.tf:67"]
+    RVAR["root var.web_acl_arn<br/>string, default null<br/>variables.tf:48"]
+    FWD["module &quot;static_hosting&quot;<br/>web_acl_arn = var.web_acl_arn<br/>main.tf:55"]
+    CVAR["child var.web_acl_arn<br/>string, default null<br/>modules/static-hosting/variables.tf:47"]
+    SINK["aws_cloudfront_distribution.main<br/>web_acl_id = var.web_acl_arn<br/>modules/static-hosting/main.tf:111"]
+    DEV["environments/dev caller<br/>omits the input, resolves null"]
+
+    ACL --> PROD --> RVAR --> FWD --> CVAR --> SINK
+    DEV -.->|unassociated by design| CVAR
+
+    style ACL fill:#5B39F3,color:#FFFFFF,stroke:#B23AF2
+    style SINK fill:#5B39F3,color:#FFFFFF,stroke:#B23AF2
+    style DEV fill:#FFFFFF,color:#000000,stroke:#B23AF2
 ```
 
----
+# 8. Summary & Recommendations
 
-## 8. Summary & Recommendations
+**What was delivered.** The production static-hosting CloudFront distribution is now configured behind an AWS WAF web ACL. The change is 22 added lines across five Terraform files: the distribution gained `web_acl_id = var.web_acl_arn`, the static-hosting module and the shared root module each gained an optional `web_acl_arn` string defaulting to `null`, the root forwards it into `module "static_hosting"`, and the production root supplies `aws_wafv2_web_acl.main.arn` — the ARN of the CLOUDFRONT-scope ACL that already existed and was never referenced. Nothing else moved: the ACL's rule policy, and every origin, cache, TLS, error-response, geo-restriction and tag setting on the distribution, are byte-identical to the previous revision.
 
-### 8.1 What Was Achieved
+**What was verified.** The security control is closed on merit and proven three independent ways — tfsec, Trivy and Checkov `CKV_AWS_68` each report a finding on the pre-change content and a pass on the current content, with no suppression directive anywhere in the tree. The ARN's route was traced hop by hop with exactly one edge per boundary, using the ACL's `.arn` rather than its id and without a separate association resource. The optional inputs were exercised across omitted, explicit-null, concrete and unknown-at-plan values, confirming that the development caller and every other omitted-input caller is untouched. Association and disassociation were modelled as in-place updates that change only `web_acl_id`, with no distribution replacement and the ACL retained on rollback. Section 3 records the eight verification areas and their results, and Section 4 records what was driven at runtime.
 
-The requested feature is **fully delivered and independently verified**. Blitzy created the repository's first server-side runtime plane — a 7-line Express entry point at `src/backend/server.js` with its own manifest, test suite, documentation, environment template, root-README section and Dependabot registration — and did so without touching a single byte of the existing React SPA.
+**What remains, and what it costs.** The project is **48.7% complete** against its scoped work — 18.5 of 38.0 hours. Implementation and static verification are done; the outstanding 19.5 hours are entirely on the path to production. Three of the six acceptance checks are deployment-stage and could not run: a credentialed plan review, the post-apply assertion that the distribution's `WebACLId` equals the `hello-world-react-prod-waf` ARN, and edge smoke checks against a real hostname. None of them is blocked by the change itself. They are blocked by the absence of an authorised AWS principal and state access, by an IANA-reserved placeholder domain that can never resolve, and — most consequentially — by pre-existing defects that stop the Terraform stack from loading at all.
 
-The work required resolving a factual conflict before any code could be written. The prompt described a Node server with one endpoint; the repository contained no server at all. Rather than implementing against a mistaken premise or bouncing the request back, Blitzy searched the full tree for every common server construct, confirmed their total absence, established that the recalled `Hello world` was React-rendered DOM content, and then built a backend that serves **both** strings — so the endpoint the user believed existed now genuinely does, alongside the new one they asked for.
+**The critical path.** In order: repair the load defects so `environments/prod` will initialise (6.0 h); stabilise the production tags and correct the S3 lifecycle argument so the WAF ACL and ACM certificate can actually be created (3.0 h); then, with credentials, review the plan, apply, poll to `Deployed` and assert live ARN equality (4.0 h); finally sign off (1.0 h) and watch the managed rules and cost for 24–48 hours (2.0 h). In parallel, correct the published verification command and put it in CI as a real gate (2.0 h) — the version published with this work evaluates no rule and returns success against vulnerable configuration, which is the single most dangerous thing a reviewer could copy from it. Success metrics are unambiguous: `terraform init` exits 0 at `environments/prod`; the plan shows an in-place `web_acl_id` update with no WAF resource created or destroyed; `DistributionConfig.WebACLId` string-matches the ACL ARN; the HTTPS root returns 200 and HTTP still returns a server 30x; and the CI gate reports `evaluated ≥ 1, passed ≥ 1, failed = 0`.
 
-Validation went well beyond "the tests pass." Both response bodies were verified at the **hex-byte** level (11 and 12 bytes, no trailing newline, whitespace or BOM), a **7/7 negative control** proved the suite actually rejects near-miss strings like `Hello World` and `Hello world ` rather than merely accepting the right ones, the test suite was run **five** times to demonstrate determinism, and a real browser confirmed exact character casing via DOM char codes. Most notably, the guarantee that the SPA was untouched was *proven* rather than asserted: the pre-feature baseline was rebuilt from `git archive` and A/B-compared in Chrome, yielding byte-identical screenshots, character-identical error strings and string-for-string identical compiler output.
+**Production readiness.** The code is ready to review and merge — it is minimal, correctly wired, behaviour-preserving and reversible by a single value change. It is **not** ready to declare the vulnerability closed in production, for two reasons a reader should hold apart. First, the association has never been observed in the account, so the claim rests on configuration rather than on the live edge. Second, and more important, repository-wide WAF coverage is not achieved and is not claimed: a second public CloudFront distribution in `modules/cdn` still has no web ACL, the associated policy is a single managed rule group with no logging, and the declared security-headers policy is attached to nothing. Merge this change, then schedule the load-defect cleanup and the deployment verification as one piece of work — the fix delivers no protection until both are done.
 
-**All 22 AAP-specified requirements are complete** — every required, recommended *and* optional deliverable, with zero placeholders, zero secrets, zero lint findings and zero dependency vulnerabilities.
+# 9. Development Guide
 
-### 8.2 Where the Project Stands
+Every command in this section was executed against this branch and its output observed, except where explicitly marked as requiring AWS credentials. All commands assume you are at the repository root.
 
-| Dimension | Status |
+### System Prerequisites
+
+| Tool | Version verified | Why it is needed |
+|---|---|---|
+| Terraform | 1.15.8 | Parse, format-check and (once the load defects clear) plan the configuration |
+| tfsec | 1.28.14 | The originating security scanner for this control |
+| AWS CLI | 2.36.25 | Deployment-stage verification only; no credentials are needed for anything else |
+| Node.js / npm | 22.23.2 / 11.18.0 | Backend service and its test suite |
+| git | 2.51.0 | Change-scope and diff-hygiene checks |
+| jq (optional) | 1.8.1 | Reading plan and scanner JSON |
+
+Operating system: any Linux with a POSIX shell. No special hardware. Terraform's provider plugin cache is pre-seeded with `hashicorp/aws 4.67.0` and `cloudflare/cloudflare 3.35.0`.
+
+### Environment Setup
+
+```bash
+# Nothing to activate — verify the toolchain is on PATH.
+terraform version | head -1     # Terraform v1.15.8
+tfsec --version | tail -1       # v1.28.14
+aws --version                   # aws-cli/2.36.25
+node --version && npm --version # v22.23.2 / 11.18.0
+```
+
+No environment variable or secret is required to build, test or run anything locally. The only optional one is `PORT` for the backend service (default `3001`). Two variables are needed **only** for deployment-stage verification, and both must come from an authorised deployment context:
+
+```bash
+export STATIC_HOSTING_DISTRIBUTION_ID=...   # the target CloudFront distribution
+export DOMAIN=...                           # a real, resolvable hostname
+```
+
+### Dependency Installation
+
+```bash
+# Backend — safe to run; its dependency tree is self-consistent.
+cd src/backend && CI=true npm install --no-audit --no-fund && cd -
+```
+
+The frontend under `src/web` has **no lockfile** (excluded by `.gitignore`), and its `package.json` omits five packages the build needs. A bare `npm install <pkg>` or `npm ci` there will prune them, and `npm audit` cannot run for the same reason. Nothing in this change touches `src/web`, so you can skip it entirely unless you are working on the frontend.
+
+### Verifying the Security Change
+
+```bash
+# 1. The security gate — human-readable. Expect: exit 0, "passed 1", "No problems detected!"
+tfsec infrastructure/terraform/modules/static-hosting \
+  --no-colour --filter-results aws-cloudfront-enable-waf
+
+# 2. The security gate — machine-checkable. This is the form a CI job should use.
+#    Note: --format json WITHOUT --out prepends a banner to stdout and breaks JSON parsing.
+GATE_JSON="$(mktemp)"
+tfsec infrastructure/terraform/modules/static-hosting \
+  --no-colour --format json --include-passed \
+  --filter-results aws-cloudfront-enable-waf \
+  --out "$GATE_JSON"
+GATE_JSON="$GATE_JSON" python3 - <<'PY'
+import json, os, sys
+res = json.load(open(os.environ['GATE_JSON'])).get('results') or []
+evaluated = len(res)
+passed = sum(1 for r in res if r.get('status') == 1)
+failed = sum(1 for r in res if r.get('status') == 0)
+print(f"evaluated={evaluated} passed={passed} failed={failed}")
+sys.exit(0 if (evaluated >= 1 and passed >= 1 and failed == 0) else 1)
+PY
+echo "gate exit=$?"   # observed: evaluated=1 passed=1 failed=0 -> gate exit=0
+rm -f "$GATE_JSON"
+
+# 3. Inspect the whole ARN path in one command.
+grep -n "web_acl" \
+  infrastructure/terraform/environments/prod/main.tf \
+  infrastructure/terraform/main.tf \
+  infrastructure/terraform/variables.tf \
+  infrastructure/terraform/modules/static-hosting/variables.tf \
+  infrastructure/terraform/modules/static-hosting/main.tf
+
+# 4. Change scope and diff hygiene. Expect exit 0 and "5 files changed, 22 insertions(+), 2 deletions(-)".
+git diff --check
+git diff --stat origin/main...HEAD | tail -1
+
+# 5. Formatter posture. Expect exit 3 listing 6 pre-existing files — do NOT "fix" it.
+terraform fmt -check -recursive infrastructure/terraform
+```
+
+### Running and Testing the Application
+
+```bash
+# Backend test suite. Observed: 1 suite passed, 2 tests passed, exit 0.
+cd src/backend && CI=true npm test && cd -
+
+# Backend service, in the background, then exercise it and stop it cleanly.
+cd src/backend
+PORT=3001 node server.js > /dev/null 2>&1 & BACKEND_PID=$!
+sleep 2
+curl -s http://localhost:3001/                                                  # Hello world
+curl -s http://localhost:3001/good-evening                                      # Good evening
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/does-not-exist   # 404
+kill "$BACKEND_PID"
+cd -
+```
+
+### Deployment-Stage Verification (requires AWS credentials)
+
+```bash
+# A. Review the plan. Expect an in-place update of web_acl_id on the static-hosting
+#    distribution, and no WAF resource created, replaced or destroyed.
+terraform -chdir=infrastructure/terraform/environments/prod init
+terraform -chdir=infrastructure/terraform/environments/prod plan -out=waf.tfplan
+terraform -chdir=infrastructure/terraform/environments/prod show -json waf.tfplan \
+  | jq '.resource_changes[] | select(.address | endswith("aws_cloudfront_distribution.main"))
+        | {address, actions: .change.actions, replace_paths: .change.replace_paths}'
+
+# B. After apply — assert the live association.
+: "${STATIC_HOSTING_DISTRIBUTION_ID:?set the target distribution ID}"
+EXPECTED_ACL_ARN=$(aws wafv2 list-web-acls --scope CLOUDFRONT --region us-east-1 \
+  --query "WebACLs[?Name=='hello-world-react-prod-waf'].ARN | [0]" --output text)
+ACTUAL_ACL_ARN=$(aws cloudfront get-distribution-config \
+  --id "$STATIC_HOSTING_DISTRIBUTION_ID" \
+  --query 'DistributionConfig.WebACLId' --output text)
+test -n "$EXPECTED_ACL_ARN" && test "$EXPECTED_ACL_ARN" != "None"
+test "$ACTUAL_ACL_ARN" = "$EXPECTED_ACL_ARN"
+
+# C. Wait for propagation.
+aws cloudfront get-distribution --id "$STATIC_HOSTING_DISTRIBUTION_ID" \
+  --query 'Distribution.Status' --output text     # poll until: Deployed
+
+# D. Edge behaviour smoke.
+: "${DOMAIN:?set the deployed custom domain}"
+test "$(curl -sS -o /dev/null -w '%{http_code}' "https://$DOMAIN/")" = "200"
+curl -sSI "http://$DOMAIN/" | grep -Eq '^HTTP/[^ ]+ 30[12]'
+```
+
+**Rollback.** Set `web_acl_arn = null` in `infrastructure/terraform/environments/prod/main.tf` (or delete the argument) and apply. This disassociates the ACL in place; the ACL resource and its rules survive, and the distribution is not replaced. Re-adding the ARN restores the association.
+
+### Troubleshooting
+
+- **`tfsec` prints `passed 0` but exits 0.** The short `AVD-AWS-0011` identifier was used as a `--filter-results` key. That version keys the filter on the long identifier, so the short form matches nothing and passes vacuously. Use `aws-cloudfront-enable-waf`.
+- **`json.decoder.JSONDecodeError` reading tfsec output.** `--format json` writes an informational banner ahead of the document. Use `--out <file>`, or strip everything before the first `{`.
+- **`terraform init`: "Duplicate required providers configuration".** Pre-existing — `required_providers` is declared three times, in `infrastructure/terraform/main.tf`, `providers.tf` and `versions.tf`. Not repaired by this change; see Section 2.2.
+- **`terraform init`: "Duplicate output definition" (×5).** Pre-existing — `modules/static-hosting/main.tf` declares outputs inline that `modules/static-hosting/outputs.tf` also declares, and `modules/cdn` repeats the pattern.
+- **`terraform fmt -check` exits 3.** Six Terraform files were already unformatted before this change and remain so deliberately. Never run bare `terraform fmt` to clear it — it reflows unrelated lines.
+- **AWS commands exit 253 `NoCredentials`.** No principal is configured in this environment by design. Deployment-stage verification belongs in an authenticated operator context.
+- **`hello-world.example.com` returns NXDOMAIN.** It is an IANA-reserved placeholder and can never resolve for anyone. Supply a real hostname with DNS and a us-east-1 ACM certificate, or use the distribution's own `*.cloudfront.net` name from authorised state. Do not use a hosts-file or resolver override as evidence.
+- **`npx webpack --mode production` fails with TS2448 at `webpack.config.ts:180`.** Pre-existing frontend defect (`Block-scoped variable 'config' used before its declaration`); `tsc --noEmit` also reports pre-existing syntax errors in four source files. Unrelated to this change.
+- **`npm ci` fails in `src/web`.** There is no lockfile there by design. Use `npm install`, and be aware it prunes five undeclared-but-required packages.
+
+# 10. Appendices
+
+## A. Command Reference
+
+| Purpose | Command | Expected result |
+|---|---|---|
+| Security gate (readable) | `tfsec infrastructure/terraform/modules/static-hosting --no-colour --filter-results aws-cloudfront-enable-waf` | exit 0, `passed 1`, "No problems detected!" |
+| Security gate (CI form) | `tfsec … --format json --include-passed --filter-results aws-cloudfront-enable-waf --out "$GATE_JSON"` | `evaluated=1 passed=1 failed=0` |
+| Whole-tree scan | `tfsec infrastructure/terraform --no-colour` | 12 passed, 6 pre-existing findings (3 HIGH, 3 MEDIUM) |
+| Inspect the ARN path | `grep -n "web_acl" <the five changed files>` | 5 hops, one line each |
+| Diff hygiene | `git diff --check` | exit 0 |
+| Change scope | `git diff --stat origin/main...HEAD` | `5 files changed, 22 insertions(+), 2 deletions(-)` |
+| Formatter posture | `terraform fmt -check -recursive infrastructure/terraform` | exit 3, 6 pre-existing files |
+| Formatter detail for one file | `terraform fmt -check -diff infrastructure/terraform/modules/static-hosting/main.tf` | `web_acl_id` appears only as unchanged context |
+| Backend tests | `cd src/backend && CI=true npm test` | 1 suite / 2 tests passed, exit 0 |
+| Backend service | `cd src/backend && PORT=3001 node server.js` | `/` → 200 "Hello world" |
+| Live association (credentialed) | `aws cloudfront get-distribution-config --id "$STATIC_HOSTING_DISTRIBUTION_ID" --query 'DistributionConfig.WebACLId'` | equals the `hello-world-react-prod-waf` ARN |
+| Propagation (credentialed) | `aws cloudfront get-distribution --id "$STATIC_HOSTING_DISTRIBUTION_ID" --query 'Distribution.Status'` | `Deployed` |
+
+## B. Port Reference
+
+| Port | Service | Notes |
+|---|---|---|
+| 3001 | `src/backend` Express service | Default; override with `PORT`. Stop it with `kill "$BACKEND_PID"` after testing |
+| 443 / 80 | CloudFront edge (deployed) | HTTPS serves the site; HTTP returns a server 30x via `redirect-to-https` |
+| — | `src/web` dev server | Not usable — the frontend build fails before a server starts |
+
+## C. Key File Locations
+
+| Path | Role |
 |---|---|
-| AAP functional scope | **100 % complete** — 22/22 requirements, 0 partial, 0 not started |
-| AAP + path-to-production hours | **60.0 % complete** — 30.0 h of 50.0 h |
-| Remaining work composition | **100 % path-to-production** — 0 h of unfinished AAP work |
-| In-scope defects open | **0** |
-| Production-readiness gates passed | **5 of 5** for 7/7 in-scope files |
-| Repository-wide release readiness | **Blocked** by 6 pre-existing, out-of-scope `src/web` defects (excluded from all totals) |
+| `infrastructure/terraform/modules/static-hosting/main.tf:111` | The association itself — `web_acl_id = var.web_acl_arn` inside `aws_cloudfront_distribution.main` |
+| `infrastructure/terraform/modules/static-hosting/variables.tf:47` | Static-hosting module's optional ARN input |
+| `infrastructure/terraform/main.tf:55` | Root module forwards the ARN into `module "static_hosting"` |
+| `infrastructure/terraform/variables.tf:48` | Root module's optional ARN input |
+| `infrastructure/terraform/environments/prod/main.tf:67` | Production supplies `aws_wafv2_web_acl.main.arn` |
+| `infrastructure/terraform/environments/prod/main.tf:123` | The existing CLOUDFRONT-scope web ACL `hello-world-react-prod-waf` |
+| `infrastructure/terraform/environments/dev/main.tf:61` | Development caller — omits the input, stays unassociated |
+| `infrastructure/terraform/modules/cdn/main.tf:58` | Second CloudFront distribution, still without a web ACL |
+| `infrastructure/terraform/main.tf:72` | Dangling `enable_waf = true` the CDN module never declares |
+| `infrastructure/terraform/modules/static-hosting/main.tf:51` | `noncurrent_version_expiration { days = 30 }` — not a provider-4.x argument |
+| `infrastructure/terraform/versions.tf` | Terraform `>= 1.0.0` and `aws ~> 4.0` constraints |
+| `src/backend/server.test.js` | The only executing test suite in the repository |
+| `src/web/src/setupTests.ts` | Imports a missing `../utils/testUtils`, which is why the frontend suites cannot run |
 
-The project is **60.0 % complete**. That figure deserves precise reading: it is not a statement that the feature is unfinished. The feature is finished, validated and production-ready in isolation. The residual **20.0 h** is entirely the deployment and operations scaffolding that the AAP deliberately placed out of scope in §0.6.2 — CI wiring, a host that can run a long-lived Node process, health and shutdown semantics, logging, and retirement of the Node 16 pin. A tutorial-grade server is inexpensive to write and comparatively expensive to operate, which is why a fully delivered feature still lands at roughly three-fifths of total hours.
+## D. Technology Versions
 
-### 8.3 Critical Path to Production
-
-```
-H-1 Review & merge (1.0 h)
-      │
-      ├──► L-1 Lockfile policy (1.5 h) ──► H-2 Backend CI job (3.0 h)
-      │
-      └──► M-3 Node 20 LTS (2.5 h) ──► H-3 Runtime host + supervisor (4.5 h)
-                                              │
-                                              ├──► M-1 /health + graceful shutdown (3.0 h)
-                                              ├──► M-2 Logging + metrics (2.0 h)
-                                              └──► M-4 PORT + proxy + TLS (1.5 h)
-                                                        │
-                                                        └──► M-5 Post-deploy smoke (1.0 h)
-```
-
-The shortest genuine path is **H-1 → M-3 → H-3 → M-1 → M-4 → M-5** (13.5 h). Doing **M-3** before **H-3** avoids building a container on an EOL base image and then rebuilding it. **L-1** should precede **H-2** if reproducible `npm ci` installs are wanted; otherwise **H-2** can proceed immediately using `npm install`.
-
-### 8.4 Human Task List
-
-| ID | Priority | Task | Hours | Owner role | Definition of done |
-|---|---|---|---:|---|---|
-| **H-1** | High | Review & merge the 7 in-scope files; explicitly ratify the `app.disable('x-powered-by')` deviation | 1.0 | Repo maintainer / Backend lead | PR approved and merged |
-| **H-2** | High | Add a `/src/backend` install + test job to `.github/workflows/test.yml` (`working-directory: src/backend`, gated on PRs to `main`). Use `npm install`, not `npm ci`, until L-1 lands | 3.0 | DevOps / Platform | Green run showing `Tests: 2 passed, 2 total` |
-| **H-3** | High | Build a backend container image (or supervisor unit) plus IaC to run it, including a restart policy | 4.5 | DevOps / Platform | Service runs from an artifact and survives restart |
-| **M-1** | Medium | Add `/health`, graceful `SIGTERM` shutdown, centralized error handler and explicit 404 contract; decide on helmet / CORS / rate limiting | 3.0 | Backend lead | Liveness probe returns 200; SIGTERM drains then exits 0 |
-| **M-2** | Medium | Wire structured request logging (method, path, status, latency) plus a metrics/uptime probe and a startup line | 2.0 | Backend lead / SRE | Every request observable in the logging stack |
-| **M-3** | Medium | Raise `engines` and the CI matrix to Node 20 LTS; re-run the suite and byte-exact checks; re-evaluate Express 5 | 2.5 | Backend lead | Suite green on an actively supported runtime |
-| **M-4** | Medium | Allocate the real `PORT`, add the reverse-proxy/ingress route, terminate TLS | 1.5 | DevOps / Platform | Both endpoints reachable over HTTPS |
-| **M-5** | Medium | Post-deploy smoke verification of both endpoints plus a 404 path in the deployed environment | 1.0 | QA / DevOps | Exact bodies asserted outside localhost |
-| **L-1** | Low | Decide the lockfile policy: commit `src/backend/package-lock.json` (and repair `cache-dependency-path` in `build.yml`/`test.yml`) or formalize `npm install` in CI | 1.5 | Repo maintainer | Documented decision, CI consistent with it |
-| | | **Total** | **20.0** | | Matches §1.2 Remaining, §2.2 total and the §7 pie |
-
-**Out of AAP scope, not counted above (0 h):** repairing the `src/web` SPA (OOS-1…OOS-6, 88 ESLint errors, 29 vulnerabilities). AAP §0.6.2 excludes those files and §0.7 forbids modifying them; the backend has zero dependency on them. This needs its own AAP.
-
-### 8.5 Success Metrics
-
-| Metric | Target | Current | Verdict |
-|---|---|---|---|
-| `GET /` returns exactly `Hello world` | Byte-exact, 200 | 11 bytes, hex verified | ✅ Met |
-| `GET /good-evening` returns exactly `Good evening` | Byte-exact, 200 | 12 bytes, hex verified | ✅ Met |
-| Express declared and installed | 4.x line | `express@4.22.2` | ✅ Met |
-| Test pass rate (in scope) | 100 % | 2/2 across 5 runs | ✅ Met |
-| Dependency vulnerabilities (in scope) | 0 | 0 of 355 | ✅ Met |
-| Lint findings (in scope) | 0 | 0 problems | ✅ Met |
-| SPA left unchanged | 0 modified files | 0 of 37 | ✅ Met |
-| Backend covered by CI | Green PR check | No backend job exists | ❌ Not met — task H-2 |
-| Deployable artifact exists | Image or supervisor unit | None | ❌ Not met — task H-3 |
-| Runtime observability | Requests logged | 0 bytes emitted | ❌ Not met — task M-2 |
-| Supported runtime | Active LTS | Pinned to EOL Node 16 | ❌ Not met — task M-3 |
-
-### 8.6 Production Readiness Assessment
-
-**Verdict: the feature is ready to merge; the service is not yet ready to operate.**
-
-- **Ready to merge now.** The 7 in-scope files pass every quality gate — 2/2 tests over 5 deterministic runs, 0 lint problems at `--max-warnings 0`, 0 vulnerabilities across 355 packages, 0 placeholders, 0 secrets, byte-exact runtime behaviour, and a proof rather than a promise that nothing else in the repository changed. One line needs a reviewer's explicit blessing: `app.disable('x-powered-by')`.
-- **Not yet ready to operate.** The service has no CI gate, no host that can run it, no health probe, no graceful shutdown, no logs, no TLS and an end-of-life runtime pin. These are not defects in the delivered code — they are the deployment surface the AAP set aside. Budget **8.5 h** of High-priority work to make the service runnable and **10.0 h** of Medium-priority work to make it operable.
-- **Separately, plan a repository-health engagement.** The out-of-scope `src/web` SPA cannot type-check, test, build or render, for six pre-existing human-authored reasons. None of it affects the backend and none of it is counted in this guide's hours, but a repository-wide release train will fail until it is addressed. It needs its own AAP.
-
-### 8.7 Confidence Levels
-
-| Estimate | Confidence | Reasoning |
+| Component | Version | Notes |
 |---|---|---|
-| Completed hours (30.0 h) | **High** | Anchored to 21 verifiable commits, a 136-line diff across 7 files, and validation logs whose every material claim was independently reproduced during this assessment (tests, audit, byte-exact responses, PORT override, 13 SPA TypeScript errors) |
-| H-1, H-2, M-5, L-1 | **High** | Small, well-bounded tasks against existing patterns |
-| M-1, M-2, M-4 | **Medium** | Standard hardening, but the target platform is undecided, and M-1 embeds a scope decision about security middleware the AAP deliberately omitted |
-| H-3, M-3 | **Medium** | H-3 depends entirely on an unchosen hosting model (container platform, PaaS or VM) — a serverless or PaaS route could land nearer 3 h, a bespoke Terraform module nearer 6 h. M-3's cost hinges on whether Express 5 is adopted at the same time |
-| Out-of-scope `src/web` repair | **Not estimated** | Deliberately excluded: outside the AAP, forbidden from modification, and irrelevant to deploying the backend |
+| Terraform CLI | 1.15.8 | Declared constraint `>= 1.0.0`; the configuration in fact needs ≥ 1.2.0 to load |
+| `hashicorp/aws` provider | 4.67.0 | Constraint `~> 4.0` unchanged; exposes `web_acl_id` as an optional string with no `ForceNew` |
+| `cloudflare/cloudflare` provider | 3.35.0 | Constraint `~> 3.0`; not exercised by this change. `versions.tf` names a non-existent `hashicorp/cloudflare` source |
+| tfsec | 1.28.14 | Rule `aws-cloudfront-enable-waf` (AVD-AWS-0011) |
+| Checkov | `CKV_AWS_68` | Corroborating check for the same control |
+| Trivy | `AWS-0011` | Corroborating check for the same control |
+| AWS CLI | 2.36.25 | No credentials configured in this environment |
+| Node.js / npm | 22.23.2 / 11.18.0 | Backend only; no application file changed |
+| Jest | 29.7.0 | Backend suite |
 
----
+## E. Environment Variable Reference
 
-## 9. Development Guide
-
-Every command below was executed on this host (Windows Server 2022, PowerShell 5.1, Node v22.23.2, npm 10.9.8) during this assessment. Outputs shown are actual.
-
-### 9.1 System Prerequisites
-
-| Requirement | Minimum | Verified working | Notes |
+| Variable | Required for | Default | Notes |
 |---|---|---|---|
-| Node.js | `>= 16.0.0` | v22.23.2 | Declared in `src/backend/package.json` → `engines.node`. **Node 16 is end-of-life — Node 20 LTS is recommended** (task M-3) |
-| npm | `>= 8.0.0` | 10.9.8 | Declared in `engines.npm` |
-| git | any recent | 2.55.0.windows.3 | Only needed to obtain the source |
-| Operating system | any | Windows Server 2022 | No platform-specific code; runs equally on Linux and macOS |
-| Free disk space | ~50 MB | — | For `src/backend/node_modules` (355 packages) |
-| Free TCP port | 3001 | confirmed free | Or set `PORT`. Do **not** use 3000 — reserved for the SPA dev server |
-| Database / cache / queue / external API | **none** | — | The backend has zero external dependencies; its only environment reference is `process.env.PORT` |
+| `PORT` | Backend service | `3001` | The only optional variable needed for local work |
+| `STATIC_HOSTING_DISTRIBUTION_ID` | Post-apply association assertion | none | Must come from authorised deployment state |
+| `DOMAIN` | Edge behaviour smoke | none | Must be a real, resolvable hostname |
+| AWS credential chain (profile, environment, or assumed role) | Plan review, apply, live verification | none | Needs CloudFront and WAFv2 read plus apply rights, and access to the remote state bucket and lock table |
+| `web_acl_arn` (Terraform input, root and static-hosting module) | Enabling the association for a caller | `null` | Pass a CLOUDFRONT-scope WAFv2 ACL **ARN**, never a web ACL id; `null` leaves the distribution unassociated |
 
-```bash
-node --version    # expect v16.0.0 or later; verified on v22.23.2
-npm --version     # expect 8.0.0 or later;  verified on 10.9.8
-```
+## F. Developer Tools Guide
 
-### 9.2 Environment Setup
+- **Do not run bare `terraform fmt`.** Six files were already unformatted and must stay that way; the formatter would reflow unrelated lines. Use `terraform fmt -check` (and `-diff` to inspect) only.
+- **`terraform validate` is not a gate here.** The configuration cannot load repository-wide until the duplicate provider and output declarations are resolved. Use the scanner gate plus the diff checks instead, and re-introduce `validate` once the cleanup lands.
+- **Always filter tfsec on the long rule id.** The AVD identifier appears in the JSON output as `rule_id` but is not a `--filter-results` key, so filtering on it silently evaluates nothing.
+- **Assert more than the exit code.** A scanner gate for this control should require `evaluated ≥ 1 AND passed ≥ 1 AND failed = 0`; the exit code alone cannot distinguish "the rule passed" from "no rule ran".
+- **Keep changes inside the five wiring sites.** Adding a `validation` block, a separate association resource, or a `.tfvars` value for `web_acl_arn` would all change the contract that the current verification rests on.
+- **Prefer `.arn` over `.id`.** CloudFront requires the web ACL's ARN; passing the WAFv2 resource id fails at apply time.
 
-> **There is no root `package.json`.** Never run `npm install` at the repository root — it will fail. All backend commands run from `src/backend`.
-
-```bash
-git clone https://github.com/blitzy-public-samples/hello-world2-0r6b4x.git
-cd hello-world2-0r6b4x
-git checkout blitzy-e3647160-80f3-4cae-8f4c-61467fbd65fc
-cd src/backend
-```
-
-Optional — create a local `.env` from the template (the real `.env` is git-ignored):
-
-```bash
-cp .env.example .env      # bash / macOS / Linux
-```
-```powershell
-Copy-Item .env.example .env   # Windows PowerShell
-```
-
-> **Important:** the server reads `process.env.PORT` directly and **no dotenv loader is installed**. A `.env` file is documentation only — `PORT` must be exported by your shell or injected by your platform.
-
-### 9.3 Dependency Installation
-
-```bash
-cd src/backend
-npm install
-```
-
-Expected on a clean tree: `added 355 packages in 30s`, exit code 0. On a warm tree: `up to date in 938ms`.
-
-> **Use `npm install`, not `npm ci`.** No lockfile is committed — root `.gitignore` excludes `package-lock.json` per the repository-wide convention. `npm ci` will fail with *"can only install with an existing package-lock.json"* (see task L-1).
-
-Optional verification:
-
-```bash
-npm audit              # -> found 0 vulnerabilities   (exit 0, verified)
-npm ls --depth=0       # -> express@4.22.2, jest@29.7.0, supertest@7.2.2
-node --check server.js # -> no output, exit 0
-```
-
-### 9.4 Application Startup
-
-A single process, with no startup ordering and no dependent services.
-
-```bash
-cd src/backend
-npm start              # equivalently: node server.js
-```
-
-The server binds `process.env.PORT || 3001`. **It intentionally prints nothing on success** — silence means it started (see task M-2). To confirm it is listening:
-
-```powershell
-Get-NetTCPConnection -LocalPort 3001 -State Listen    # Windows PowerShell
-```
-```bash
-lsof -i :3001                                          # macOS / Linux
-```
-
-Port override — pick the form that matches your shell:
-
-```bash
-PORT=4000 npm start          # bash / macOS / Linux
-```
-```powershell
-$env:PORT="4000"; npm start  # Windows PowerShell (verified)
-```
-
-The override replaces the default rather than adding to it: with `PORT=4000`, port 3001 stops listening entirely (verified).
-
-### 9.5 Verification Steps
-
-In a **second** shell, with the server running:
-
-```bash
-curl http://localhost:3001/                 # -> Hello world
-curl http://localhost:3001/good-evening     # -> Good evening
-curl -i http://localhost:3001/nope          # -> HTTP/1.1 404 Not Found
-```
-
-On Windows PowerShell use `curl.exe` — bare `curl` is an alias for `Invoke-WebRequest`:
-
-```powershell
-curl.exe -s http://localhost:3001/                # -> Hello world      (verified)
-curl.exe -s http://localhost:3001/good-evening    # -> Good evening     (verified)
-curl.exe -s -i http://localhost:3001/             # headers + body      (verified)
-```
-
-Actual verified header output for `GET /` — note `Content-Length: 11` and the **absence** of `X-Powered-By`:
-
-```
-HTTP/1.1 200 OK
-Content-Type: text/html; charset=utf-8
-Content-Length: 11
-ETag: W/"b-e1AsOh9IyGCa4hLN+2Od7jlnP14"
-Connection: keep-alive
-Keep-Alive: timeout=5
-```
-
-Pure-PowerShell equivalent with exact case-sensitive assertions:
-
-```powershell
-$r = Invoke-WebRequest -Uri "http://localhost:3001/" -UseBasicParsing
-$r.StatusCode                       # 200
-$r.Content -ceq 'Hello world'       # True
-$r.Headers['X-Powered-By']          # (empty — header absent)
-```
-
-Run the test suite (no server needs to be running — Supertest works in-process):
-
-```bash
-cd src/backend
-npm test
-```
-
-Verified output:
-
-```
-PASS ./server.test.js
-  backend endpoints
-    √ GET / returns Hello world (39 ms)
-    √ GET /good-evening returns Good evening (5 ms)
-
-Test Suites: 1 passed, 1 total
-Tests:       2 passed, 2 total
-Snapshots:   0 total
-```
-
-With coverage:
-
-```bash
-npx jest --coverage --ci --collectCoverageFrom=server.js
-```
-
-Verified: `% Stmts 90 | % Branch 25 | % Funcs 100 | % Lines 100 | Uncovered Line #s 7`. Line 7 is the `require.main` listen guard — see the coverage note in Section 3.
-
-### 9.6 Example Usage
-
-```bash
-# Terminal 1 — start the server on a custom port
-cd src/backend
-PORT=4000 npm start
-
-# Terminal 2 — exercise both endpoints
-curl http://localhost:4000/                 # Hello world
-curl http://localhost:4000/good-evening     # Good evening
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:4000/missing   # 404
-```
-
-```powershell
-# Windows PowerShell equivalent (verified end to end)
-$env:PORT="4000"; npm start                 # terminal 1
-(Invoke-WebRequest "http://localhost:4000/" -UseBasicParsing).Content              # Hello world
-(Invoke-WebRequest "http://localhost:4000/good-evening" -UseBasicParsing).Content  # Good evening
-```
-
-Importing the app without binding a port (this is how the test suite works):
-
-```javascript
-const request = require('supertest');
-const app = require('./server');   // the require.main guard means no port is bound
-await request(app).get('/').expect(200, 'Hello world');
-```
-
-### 9.7 Troubleshooting
-
-| Symptom | Cause | Resolution |
-|---|---|---|
-| `Error: listen EADDRINUSE: address already in use :::3001` | Another process holds 3001 | Set a different port (`$env:PORT="4000"; npm start`) or free it: `Get-NetTCPConnection -LocalPort 3001 -State Listen` then stop that specific PID |
-| `Error: Cannot find module 'express'` | `npm install` not run, or run in the wrong directory | `cd src/backend` then `npm install`. Remember there is no root `package.json` |
-| `npm ci` → *"can only install with an existing package-lock.json"* | No lockfile is committed (root `.gitignore` excludes it) | Use `npm install`. See task L-1 for the governance decision |
-| `npm start` produces no output at all | **Expected.** The server logs nothing, by design | Confirm with `Get-NetTCPConnection -LocalPort 3001 -State Listen` or a curl probe. Structured logging is task M-2 |
-| `PORT=4000 npm start` fails in PowerShell | POSIX inline-env syntax is not valid in PowerShell | Use `$env:PORT="4000"; npm start` |
-| Bare `curl` in PowerShell behaves unexpectedly | In PowerShell 5.1 `curl` is an alias for `Invoke-WebRequest` | Use `curl.exe` (verified at `C:\Windows\system32\curl.exe`, curl 8.16.0) or `Invoke-WebRequest` properly |
-| `Ctrl+C` on Windows leaves a `node server.js` process holding the port | `npm start` spawns node as a **grandchild**, which can outlive the npm wrapper | Prefer `node server.js` directly, or find and stop the specific PID: `Get-NetTCPConnection -LocalPort 3001 -State Listen` → `Stop-Process -Id <OwningProcess> -Force`. Encountered and resolved during this assessment |
-| Response body has unexpected casing | You may be looking at the React SPA's `Hello World`, not the endpoint's `Hello world` | The HTTP endpoint deliberately uses the prompt's lowercase `w`; the SPA component uses the capitalized form. Both are correct in their own context |
-| `npm run build` / `npm test` / `npm run type-check` in `src/web` fail | **Pre-existing and out of scope.** `npx tsc --noEmit` exits 2 with 13 errors across 5 files; `webpack.config.ts:180` prevents webpack-cli from loading the config | Unrelated to the backend and byte-identical to the pre-feature baseline. Requires a separate work item (see §1.4) |
-| Want to lint the SPA without breaking it | `src/web`'s `npm run lint` is `eslint --fix` and **mutates sources** | **Never run it.** Use `npx eslint src --ext .ts,.tsx --no-fix` |
-| `git status` shows `blitzy/screenshots/` and `blitzy/screen_recordings/` | Browser evidence artifacts (~394 MB), intentionally never committed | Leave them untracked, or delete them locally. They are not part of the deliverable |
-
----
-
-## 10. Appendices
-
-### Appendix A — Command Reference
-
-| Command | Directory | Purpose | Verified result |
-|---|---|---|---|
-| `node --version` | any | Check runtime | `v22.23.2` |
-| `npm --version` | any | Check package manager | `10.9.8` |
-| `npm install` | `src/backend` | Install dependencies | exit 0 · 355 packages clean / "up to date in 938ms" warm |
-| `npm audit` | `src/backend` | Vulnerability scan | exit 0 · `found 0 vulnerabilities` |
-| `npm ls --depth=0` | `src/backend` | List direct deps | `express@4.22.2`, `jest@29.7.0`, `supertest@7.2.2` |
-| `node --check server.js` | `src/backend` | Syntax gate | exit 0, no output |
-| `npm test` | `src/backend` | Run the suite | exit 0 · `Tests: 2 passed, 2 total` |
-| `npx jest --ci` | `src/backend` | Non-interactive test run | exit 0 |
-| `npx jest --coverage --ci --collectCoverageFrom=server.js` | `src/backend` | Coverage report | 90 % stmts · 25 % branch · 100 % funcs · 100 % lines · uncovered line 7 |
-| `npm start` | `src/backend` | Start on 3001 | binds, emits no output |
-| `node server.js` | `src/backend` | Start without the npm wrapper | binds; easier to stop on Windows |
-| `PORT=4000 npm start` | `src/backend` | Port override (bash) | serves on 4000 |
-| `$env:PORT="4000"; npm start` | `src/backend` | Port override (PowerShell) | serves on 4000; 3001 not listening |
-| `curl http://localhost:3001/` | any | Probe `Hello world` | `Hello world` |
-| `curl.exe -s -i http://localhost:3001/` | any (Windows) | Inspect headers | 200 · `Content-Length: 11` · no `X-Powered-By` |
-| `Invoke-WebRequest -Uri http://localhost:3001/ -UseBasicParsing` | any (PowerShell) | Probe with assertions | `StatusCode 200`, `-ceq 'Hello world'` → True |
-| `Get-NetTCPConnection -LocalPort 3001 -State Listen` | any (PowerShell) | Confirm the listener / find its PID | reports the owning process |
-| `git diff da0d24d..HEAD --stat` | repo root | See everything this branch changed | 9 files, 2,461 insertions, 1 deletion |
-| `git diff da0d24d..HEAD -- src/web` | repo root | Prove the SPA is untouched | **empty** |
-| `npx eslint src --ext .ts,.tsx --no-fix` | `src/web` | Lint the SPA **without mutating it** | reports pre-existing findings; never use `npm run lint` |
-
-### Appendix B — Port Reference
-
-| Port | Service | Source of truth | Status |
-|---|---|---|---|
-| **3001** | Express backend (default) | `src/backend/server.js:7` → `process.env.PORT \|\| 3001`; `src/backend/.env.example:1` | Verified bound and released cleanly; free on this host |
-| **4000** | Documented override example | `src/backend/README.md:20` | Verified serving both endpoints byte-exactly |
-| **4100** | Second override, used in validation | Validation logs | Verified serving byte-exactly, coexisting with 3001 |
-| **3000** | `src/web` webpack dev server — **reserved** | AAP §0.7 port hygiene | Never bound by the backend; free on this host |
-
-### Appendix C — Key File Locations
-
-| Path | Role | Status |
-|---|---|---|
-| `src/backend/server.js` | Express entry: both routes, `module.exports`, `require.main` listen guard, `disable('x-powered-by')` | **Created** — 7 lines / 303 bytes |
-| `src/backend/package.json` | Backend manifest: express/jest/supertest, engines, scripts | **Created** — 21 lines |
-| `src/backend/server.test.js` | Jest + Supertest suite, 2 specs | **Created** — 11 lines |
-| `src/backend/README.md` | Install / run / verify / test documentation | **Created** — 42 lines |
-| `src/backend/.env.example` | `PORT` override contract | **Created** — 1 line |
-| `README.md` (root) | § "Backend (Express)" | **Updated** — ~28 added lines |
-| `.github/dependabot.yml` | 3rd `updates` block for `/src/backend` | **Updated** — +18 / −1 |
-| `.gitignore` (root) | Ignores `node_modules/`, `package-lock.json`, `yarn.lock`, `.env*` | Unchanged (no change needed) |
-| `.github/workflows/{build,test,deploy}.yml` | CI — all pinned `working-directory: src/web`, `node-version: [16.x]` | Unchanged — **no backend coverage** (task H-2) |
-| `infrastructure/docker/{Dockerfile,nginx.conf,docker-compose.yml}` | Static SPA delivery | Unchanged — cannot host a Node process (task H-3) |
-| `infrastructure/terraform/**` | 13 `.tf` files; `static-hosting` + `cdn` modules | Unchanged — static hosting only (task H-3) |
-| `src/web/**` | React 18.2.0 + TS 4.9.5 SPA, 37 tracked files | Unchanged — all 37 byte-identical by SHA256 |
-
-### Appendix D — Technology Versions
-
-| Component | Declared | Installed / Observed | Notes |
-|---|---|---|---|
-| Node.js | `>= 16.0.0` (`engines.node`) | v22.23.2 | Node 16 is EOL; CI pins `16.x` (task M-3) |
-| npm | `>= 8.0.0` (`engines.npm`) | 10.9.8 | |
-| express | `^4.21.2` | **4.22.2** | 4.x deliberately, not 5.x — Express 5 requires Node 18+ |
-| jest | `^29.7.0` | **29.7.0** | 29.x deliberately, not 30.x — Jest 30 drops Node 16 |
-| supertest | `^7.2.2` | **7.2.2** | In-process HTTP assertions, binds no port |
-| git | — | 2.55.0.windows.3 | |
-| curl | — | 8.16.0 (`C:\Windows\system32\curl.exe`) | Bare `curl` is a PowerShell alias — use `curl.exe` |
-| react *(out of scope)* | `^18.2.0` | — | `src/web` |
-| typescript *(out of scope)* | `^4.9.5` | — | `src/web` |
-| webpack *(out of scope)* | `^5.75.0` | — | `src/web` |
-| styled-components *(out of scope)* | `^5.3.0` | — | `src/web` |
-
-### Appendix E — Environment Variable Reference
-
-| Variable | Required | Default | Consumed at | Description |
-|---|---|---|---|---|
-| `PORT` | No | `3001` | `src/backend/server.js:7` → `process.env.PORT \|\| 3001` | TCP port the Express server binds. Documented in `src/backend/.env.example`. **No dotenv loader is installed** — export it from your shell or inject it from your platform; a `.env` file alone has no effect. Verified working on 4000 and 4100 |
-
-No other environment variable exists anywhere in the backend. There are no API keys, tokens, database URLs or secrets — confirmed by a 9-pattern secret scan across all 7 in-scope files (0 hits).
-
-### Appendix F — Developer Tools Guide
-
-| Tool | Version | Invocation | Purpose |
-|---|---|---|---|
-| Jest | 29.7.0 | `npm test` · `npx jest --ci` | Test runner. Version pinned to the 29 line for Node 16 compatibility |
-| Supertest | 7.2.2 | via `server.test.js` | In-process HTTP assertions against the exported app — no port bound, which is why the suite is fast and side-effect free |
-| Node syntax checker | built in | `node --check server.js` | Cheapest possible compile gate for a plain-JS project |
-| ESLint | 8.x | `npx eslint server.js server.test.js --no-fix` | The backend ships **no** ESLint config of its own; validation supplied a standalone `-c` config plus `--resolve-plugins-relative-to`. Always pass `--no-fix` |
-| npm audit | npm 10.9.8 | `npm audit` | Supply-chain scan — currently 0 vulnerabilities across 355 packages |
-| Dependabot | config v2 | `.github/dependabot.yml` | Weekly npm updates for `/src/backend` (production + development), plus the pre-existing `/src/web` and `github-actions` blocks |
-| Jest coverage | 29.7.0 | `npx jest --coverage --collectCoverageFrom=server.js` | 90 % stmts · 25 % branch · 100 % funcs · 100 % lines; `coverage/` is git-ignored |
-
-### Appendix G — Glossary
+## G. Glossary
 
 | Term | Meaning |
 |---|---|
-| **AAP** | Agent Action Plan — the frozen specification that defines this project's scope. §0.6.1 lists what is in scope, §0.6.2 what is explicitly out |
-| **FR-1 / FR-2 / FR-3** | The three functional requirements: introduce Express; add `GET /good-evening`; preserve a `Hello world` response |
-| **G1 / G2 / G3 / G4** | AAP §0.5.1 file groups — G1 required (`package.json`, `server.js`), G2 recommended/optional (backend README, `.env.example`), G3 optional tests, G4 optional integration updates (root README, Dependabot) |
-| **Listen guard** | `if (require.main === module) app.listen(...)` — makes the module importable by tests without opening a socket. The reason Jest reports line 7 as an uncovered statement |
-| **Byte-exact verification** | Asserting a response body by its hex bytes and `content-length` rather than a string compare, which catches trailing whitespace, stray newlines and BOMs that `===` would hide |
-| **Negative control** | A test that the suite *rejects* wrong values (`Hello World`, `Hello world `, `Good Evening`), proving the assertions are genuinely strict rather than accidentally permissive |
-| **Baseline `da0d24d`** | The last human-authored commit before this branch. Every "unchanged" claim about `src/web` is measured against it |
-| **OOS-1 … OOS-6** | The six pre-existing, human-authored `src/web` defects catalogued in §1.4 and risk I3 — out of AAP scope, byte-identical to baseline, excluded from all hour totals |
-| **Path-to-production** | Work required to deploy an AAP deliverable that the AAP itself did not implement — CI, hosting, health/shutdown semantics, logging, TLS, runtime upgrades. All 20.0 h of remaining work falls here |
-| **In scope / out of scope** | In scope = the 7 files in AAP §0.6.1. Out of scope = everything in §0.6.2 (`src/web/**`, `infrastructure/**`, `.github/workflows/*`, root `.gitignore`, the Node 16→18 upgrade, Express 5) |
-
----
-
-*Blitzy Project Guide — brand colors: Completed / AI Work `#5B39F3` · Remaining `#FFFFFF` · Headings & Accents `#B23AF2` · Highlight `#A8FDD9`.*
+| Web ACL (WAFv2) | An AWS WAF access-control list of rules evaluated against incoming requests. A CLOUDFRONT-scope ACL must live in `us-east-1` |
+| `web_acl_id` | The CloudFront distribution attribute that carries the association. Despite its name it takes the ACL's **ARN** for WAFv2 |
+| CLOUDFRONT scope | The web ACL scope required for association with a CloudFront distribution, as opposed to `REGIONAL` |
+| AWS Common Rule Set | `AWSManagedRulesCommonRuleSet` — the AWS-managed baseline rule group attached to this ACL at priority 1 |
+| Default allow | The ACL's `default_action` — requests matching no rule are permitted |
+| OAI | CloudFront Origin Access Identity — keeps the S3 origin private so content is reachable only through the distribution |
+| SPA fallback | The `custom_error_response` mapping 404 → 200 `/index.html`, so client-side routes resolve |
+| In-place update | A Terraform change applied to an existing resource without destroying and recreating it |
+| AVD-AWS-0011 / `aws-cloudfront-enable-waf` | The two identifiers for the same scanner control: "CloudFront distribution does not have a WAF in front" |
+| CKV_AWS_68 | The Checkov check for the same condition |
+| CloudFront.6 | The AWS Security Hub control that fails when a distribution has no associated web ACL |
+| Vacuous gate | A check that reports success without evaluating anything — the failure mode of filtering on the wrong identifier |
