@@ -63,6 +63,9 @@ module "root" {
   enable_backups    = true
   enable_logging    = true
 
+  # CloudFront accepts only the ARN of a CLOUDFRONT-scope web ACL, never a web ACL id
+  web_acl_arn = aws_wafv2_web_acl.main.arn
+
   # Additional production-specific configurations
   tags = merge(local.common_tags, {
     Environment = "Production"

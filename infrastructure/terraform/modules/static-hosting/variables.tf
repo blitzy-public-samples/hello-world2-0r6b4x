@@ -43,3 +43,9 @@ variable "domain_name" {
     error_message = "Domain name must be a valid DNS hostname."
   }
 }
+
+variable "web_acl_arn" {
+  type        = string
+  description = "ARN of the CLOUDFRONT-scope AWS WAFv2 web ACL to associate with the CloudFront distribution. Null leaves the distribution unassociated."
+  default     = null
+}
